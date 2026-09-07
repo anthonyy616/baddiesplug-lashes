@@ -14,11 +14,14 @@
     "db:seed": "tsx db/seed/index.ts"
   },
   "dependencies": {
+    "@auth/drizzle-adapter": "^1.11.3",
+    "@auth/neon-adapter": "^1.11.3",
     "@neondatabase/serverless": "^1.1.0",
     "date-fns": "^4.4.0",
     "date-fns-tz": "^3.2.0",
     "drizzle-orm": "^0.45.2",
     "next": "^16.3.4",
+    "next-auth": "^5.0.0-beta.32",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "zod": "^4.5.4"

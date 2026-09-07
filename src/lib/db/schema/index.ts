@@ -11,7 +11,9 @@ import {
 } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
 
-// Users table
+// Users table - extended with our custom fields while compatible with NextAuth
+// NextAuth expects: id, name, email, emailVerified, image, password,uuid
+// We'll use authUserId to link to NextAuth's user id
 export const users = pgTable('users', {
   id: uuid('id').primaryKey().defaultRandom(),
   authUserId: uuid('auth_user_id').notNull().unique(),
@@ -26,6 +28,44 @@ export const users = pgTable('users', {
   index('users_email_idx').on(table.email),
   index('users_role_idx').on(table.role),
   index('users_deleted_at_idx').on(table.deletedAt),
+]);
+
+// NextAuth tables - required for DrizzleAdapter
+export const accounts = pgTable('accounts', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  type: varchar('type', { length: 255 }).notNull(),
+  provider: varchar('provider', { length: 255 }).notNull(),
+  providerAccountId: varchar('provider_account_id', { length: 255 }).notNull(),
+  refresh_token: text('refresh_token'),
+  access_token: text('access_token'),
+  expires_at: integer('expires_at'),
+  token_type: varchar('token_type', { length: 255 }),
+  scope: varchar('scope', { length: 255 }),
+  id_token: text('id_token'),
+  session_state: varchar('session_state', { length: 255 }),
+  created_at: timestamp('created_at', { withTimezone: true }),
+  updated_at: timestamp('updated_at', { withTimezone: true }),
+}, (table) => [
+  index('accounts_userId_idx').on(table.userId),
+  uniqueIndex('accounts_provider_providerAccountId_unique').on(table.provider, table.providerAccountId),
+]);
+
+export const sessions = pgTable('sessions', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  sessionToken: varchar('session_token', { length: 255 }).notNull().unique(),
+  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  expires: timestamp('expires', { withTimezone: true }).notNull(),
+}, (table) => [
+  index('sessions_userId_idx').on(table.userId),
+]);
+
+export const verificationTokens = pgTable('verification_tokens', {
+  identifier: varchar('identifier', { length: 255 }).notNull(),
+  token: varchar('token', { length: 255 }).notNull().unique(),
+  expires: timestamp('expires', { withTimezone: true }).notNull(),
+}, (table) => [
+  uniqueIndex('verification_tokens_identifier_token_unique').on(table.identifier, table.token),
 ]);
 
 // Services table
@@ -220,6 +260,27 @@ export const emailEvents = pgTable('email_events', {
 ]);
 
 // Relations
+export const accountsRelations = relations(accounts, ({ one }) => ({
+  user: one(users, {
+    fields: [accounts.userId],
+    references: [users.id],
+  }),
+}));
+
+export const sessionsRelations = relations(sessions, ({ one }) => ({
+  user: one(users, {
+    fields: [sessions.userId],
+    references: [users.id],
+  }),
+}));
+
+export const verificationTokensRelations = relations(verificationTokens, ({ one }) => ({
+  user: one(users, {
+    fields: [verificationTokens.identifier],
+    references: [users.email],
+  }),
+}));
+
 export const usersRelations = relations(users, ({ many }) => ({
   bookings: many(bookings),
   notifications: many(notifications),

@@ -15,6 +15,32 @@ interface Env {
 }
 
 function getEnv(): Env {
+  const missing: string[] = [];
+
+  const envVars = {
+    DATABASE_URL: 'databaseUrl',
+    AUTH_SECRET: 'authSecret',
+    AUTH_URL: 'authUrl',
+    RESEND_API_KEY: 'resendApiKey',
+    R2_ACCOUNT_ID: 'r2AccountId',
+    R2_ACCESS_KEY_ID: 'r2AccessKeyId',
+    R2_SECRET_ACCESS_KEY: 'r2SecretAccessKey',
+    R2_BUCKET_NAME: 'r2BucketName',
+    ADMIN_EMAIL: 'adminEmail',
+    WHATSAPP_NUMBER: 'whatsappNumber',
+    CRON_SECRET: 'cronSecret',
+  };
+
+  for (const [envKey, propName] of Object.entries(envVars)) {
+    if (!process.env[envKey]) {
+      missing.push(envKey);
+    }
+  }
+
+  if (missing.length > 0) {
+    console.warn(`Warning: Missing environment variables: ${missing.join(', ')}`);
+  }
+
   return {
     databaseUrl: process.env.DATABASE_URL ?? '',
     authSecret: process.env.AUTH_SECRET ?? '',
