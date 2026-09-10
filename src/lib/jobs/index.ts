@@ -7,7 +7,7 @@ import {
   bookingServices,
 } from '@/lib/db/schema';
 import { eq, and, inArray, lte, sql } from 'drizzle-orm';
-import { queueEmailEvent, dispatchEmailEvent, retryPendingEmails } from '@/lib/email/events';
+import { queueEmailEvent, processEmailEvent, retryPendingEmails } from '@/lib/email/events';
 import { parseSlotToDateTime } from '@/lib/timezone';
 
 /**
@@ -16,15 +16,18 @@ import { parseSlotToDateTime } from '@/lib/timezone';
 
 /**
  * Queue 1-hour-before reminders for confirmed bookings that don't have one
- * yet. Runs every 5 minutes; creates reminder email events scheduled for
- * exactly 1 hour before the appointment start.
+ * yet. The cron runs once daily (Vercel Hobby plan), so this queues reminders
+ * for every confirmed appointment starting within the next ~32 hours — i.e.
+ * everything that will come due before the next daily run.
+ * Reminder events are still scheduled for exactly 1 hour before the
+ * appointment start (used for audit and by other senders).
  * Returns the number of reminders queued.
  */
 export async function queueAppointmentReminders(): Promise<number> {
-  // Confirmed appointments starting within the next ~90 minutes without a
+  // Confirmed appointments starting within the next ~32 hours without a
   // reminder event already queued.
   const now = Date.now();
-  const horizon = new Date(now + 90 * 60 * 1000);
+  const horizon = new Date(now + 32 * 60 * 60 * 1000);
 
   const upcoming = await db.query.bookings.findMany({
     where: and(
@@ -90,7 +93,13 @@ export async function queueAppointmentReminders(): Promise<number> {
 }
 
 /**
- * Send all reminders that are due now (scheduledFor <= now).
+ * Send all reminders that are due now or before the next daily run.
+ *
+ * With a once-daily cron (Vercel Hobby plan), waiting for scheduledFor <= now
+ * would fire most same-day reminders AFTER the appointment. Instead we send
+ * everything that becomes due within the next 24 hours — the standard
+ * catch-up pattern for low-frequency schedulers. Each reminder is still sent
+ * exactly once (status flips to 'sent').
  * Returns number sent.
  */
 export async function sendDueReminders(): Promise<number> {
@@ -101,13 +110,15 @@ export async function sendDueReminders(): Promise<number> {
       and(
         eq(emailEvents.eventType, 'appointment.reminder'),
         eq(emailEvents.status, 'pending'),
-        lte(emailEvents.scheduledFor, new Date())
+        lte(emailEvents.scheduledFor, new Date(Date.now() + 24 * 60 * 60 * 1000))
       )
     )
     .limit(50);
 
+  // Await each send so the serverless function doesn't freeze mid-flight
+  // after the cron response returns. processEmailEvent never throws.
   for (const event of due) {
-    dispatchEmailEvent(event.id);
+    await processEmailEvent(event.id);
   }
 
   return due.length;
