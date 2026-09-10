@@ -12,22 +12,22 @@ const schema = z.object({ email: z.string().email() });
 
 export async function POST(request: NextRequest) {
   try {
-    // Rate limit password reset requests (per email, not just per IP)
     const body = await request.json();
-    const email = (body.email ?? '').toLowerCase();
-    
-    const identifier = createRateLimitKey(request, email);
-    const rateLimitResult = await checkRateLimit(identifier, RateLimits.passwordReset);
-    if (!rateLimitResult.allowed) {
-      // Always return success to avoid account enumeration, even when rate limited
-      return NextResponse.json({ success: true });
-    }
     const parsed = schema.safeParse(body);
     if (!parsed.success) {
       return NextResponse.json({ error: 'Invalid email address' }, { status: 400 });
     }
 
     const email = parsed.data.email.toLowerCase();
+
+    // Rate limit password reset requests (per email, not just per IP)
+    const identifier = createRateLimitKey(request, email);
+    const rateLimitResult = await checkRateLimit(identifier, RateLimits.passwordReset);
+    if (!rateLimitResult.allowed) {
+      // Always return success to avoid account enumeration, even when rate limited
+      return NextResponse.json({ success: true });
+    }
+
     const user = await db.query.users.findFirst({ where: eq(users.email, email) });
 
     // Always return success to avoid account enumeration

@@ -44,3 +44,5 @@ next-env.d.ts
 personal/*
 db/migrations/meta/*
 docs/*
+# Sentry Config File
+.env.sentry-build-plugin

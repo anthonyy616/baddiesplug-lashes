@@ -168,16 +168,6 @@ function SignInContent() {
               </svg>
               <span className="text-gray-700 dark:text-gray-300 font-medium">Continue with Google</span>
             </button>
-            <button
-              onClick={() => oauth('apple')}
-              disabled={isLoading}
-              className="w-full flex items-center justify-center gap-3 px-4 py-3 border border-gray-300 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50 transition-colors"
-            >
-              <svg className="w-5 h-5" viewBox="0 0 24 24">
-                <path fill="currentColor" d="M17.05 20.28c-.98.95-2.05.88-3.08.4-1.09-.5-2.08-.48-3.13 0-1.3.6-2.05.42-3.08-.4C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.2 2.58-2.38 4.5-3.74 4.25z" />
-              </svg>
-              <span className="text-gray-700 dark:text-gray-300 font-medium">Continue with Apple</span>
-            </button>
 
             <div className="flex items-center gap-3 py-2">
               <div className="flex-1 h-px bg-gray-200 dark:bg-gray-800" />

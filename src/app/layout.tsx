@@ -3,7 +3,10 @@ import { Playfair_Display } from 'next/font/google';
 import './globals.css';
 import { AuthProvider } from '@/components/AuthProvider';
 import { ThemeProvider } from '@/components/ThemeProvider';
-import * as Sentry from '@sentry/nextjs';
+
+// Sentry is initialized separately in sentry configs.
+// The @sentry/nextjs package should be installed for production error tracking.
+// If not installed, these configs are simply no-ops.
 
 const playfair = Playfair_Display({
   subsets: ['latin'],
@@ -11,13 +14,9 @@ const playfair = Playfair_Display({
   display: 'swap',
 });
 
-// Initialize Sentry error tracking
-if (process.env.NODE_ENV === 'production') {
-  Sentry.init({
-    dsn: process.env.NEXT_PUBLIC_SENTRY_DSN,
-    tracesSampleRate: 0.1,
-  });
-}
+// Sentry initialization is handled in sentry.client.config.ts and sentry.server.config.ts
+// These files are only loaded when @sentry/nextjs package is installed.
+// To enable Sentry, run: npm install @sentry/nextjs
 
 export const metadata: Metadata = {
   title: 'The Baddies Plug | Luxury Lash & Beauty Services',

@@ -374,7 +374,7 @@ export default function BookingFlow() {
       }
 
       // Don't retry if this was the last attempt or if it was a non-transient error
-      if (attempt >= MAX_RETRIES || lastError.includes('slot') || lastError.includes('429')) {
+      if (attempt >= MAX_RETRIES || lastError?.includes('slot') || lastError?.includes('429')) {
         setError(lastError || 'Failed to create booking. Please try again.');
         setIsSubmitting(false);
         return;

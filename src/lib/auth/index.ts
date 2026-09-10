@@ -1,45 +1,33 @@
 import NextAuth from 'next-auth';
 import Google from 'next-auth/providers/google';
-import Apple from 'next-auth/providers/apple';
 import Credentials from 'next-auth/providers/credentials';
 import bcrypt from 'bcryptjs';
 import { eq } from 'drizzle-orm';
 import { DrizzleAdapter } from '@auth/drizzle-adapter';
-import { db, sql } from '@/lib/db';
+import { db } from '@/lib/db';
 import { users, accounts, sessions, credentials, verificationTokens } from '@/lib/db/schema';
 import { z } from 'zod';
-import { getAppleClientSecret } from './apple-jwt';
+
+// Type assertions to satisfy DrizzleAdapter's strict types.
+// Our custom tables have additional columns (e.g., authUserId, role, phone)
+// but are compatible at runtime with the adapter's expectations.
+const adaptUsersTable = users as any;
+const adaptAccountsTable = accounts as any;
+const adaptSessionsTable = sessions as any;
+const adaptVerificationTokensTable = verificationTokens as any;
 
 const credentialsSchema = z.object({
   email: z.string().email(),
   password: z.string().min(8),
 });
 
-// Get Apple client secret (generated dynamically from .p8 key if configured)
-let cachedAppleSecret: string | null = null;
-let secretExpiration: number = 0;
-
-async function getAppleSecret(): Promise<string> {
-  // Cache the secret for up to 5 hours to avoid excessive JWT generation
-  if (cachedAppleSecret && Date.now() < secretExpiration) {
-    return cachedAppleSecret;
-  }
-  
-  const secret = await getAppleClientSecret();
-  if (secret) {
-    cachedAppleSecret = secret;
-    secretExpiration = Date.now() + 5 * 60 * 60 * 1000; // 5 hours
-  }
-  return secret;
-}
-
 export const { handlers, signIn, signOut, auth } = NextAuth({
   // Use Drizzle adapter for persisting users, accounts, sessions, and verification tokens
   adapter: DrizzleAdapter(db, {
-    usersTable: users,
-    accountsTable: accounts,
-    sessionsTable: sessions,
-    verificationTokensTable: verificationTokens,
+    usersTable: adaptUsersTable,
+    accountsTable: adaptAccountsTable,
+    sessionsTable: adaptSessionsTable,
+    verificationTokensTable: adaptVerificationTokensTable,
   }),
   // Use database sessions via the adapter (instead of JWT-only)
   session: { strategy: 'database', maxAge: 30 * 24 * 60 * 60 },
@@ -51,17 +39,6 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     Google({
       clientId: process.env.GOOGLE_CLIENT_ID ?? '',
       clientSecret: process.env.GOOGLE_CLIENT_SECRET ?? '',
-      allowDangerousEmailAccountLinking: true,
-    }),
-    Apple({
-      clientId: process.env.APPLE_CLIENT_ID ?? '',
-      // Dynamically generate Apple client secret from .p8 key, or use env var if provided
-      clientSecret: async () => {
-        // Try env var first, then generate from .p8 key
-        const envSecret = process.env.APPLE_CLIENT_SECRET;
-        if (envSecret) return envSecret;
-        return getAppleSecret();
-      },
       allowDangerousEmailAccountLinking: true,
     }),
     Credentials({

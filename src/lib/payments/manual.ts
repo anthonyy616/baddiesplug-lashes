@@ -2,7 +2,7 @@ import { db } from '@/lib/db';
 import { payments, bookings } from '@/lib/db/schema';
 import { eq, and, sum, sql } from 'drizzle-orm';
 import { v4 as uuidv4 } from 'uuid';
-import type { PaymentProvider, PaymentRecord, PaymentStatusResult, PaymentType } from './types';
+import type { PaymentProvider, PaymentRecord, PaymentStatusResult, PaymentType, PaymentStatus } from './types';
 
 /**
  * Manual payment provider.
@@ -60,7 +60,7 @@ export class ManualPaymentProvider implements PaymentProvider {
       orderBy: (p) => [p.createdAt],
     });
 
-    const payments: PaymentRecord[] = paymentRows.map((row) => ({
+    const paymentRecords: PaymentRecord[] = paymentRows.map((row) => ({
       id: row.id,
       bookingId: row.bookingId,
       amount: row.amount,
@@ -71,7 +71,7 @@ export class ManualPaymentProvider implements PaymentProvider {
       paymentProvider: 'manual',
     }));
 
-    const totalPaid = payments.reduce((sum, p) => sum + p.amount, 0);
+    const totalPaid = paymentRecords.reduce((sum, p) => sum + p.amount, 0);
     const depositRequired = booking.depositRequired;
     const total = booking.total;
     const balanceDue = total - totalPaid;
@@ -92,7 +92,7 @@ export class ManualPaymentProvider implements PaymentProvider {
       totalPaid,
       depositRequired,
       balanceDue: Math.max(0, balanceDue),
-      payments,
+      payments: paymentRecords,
     };
   }
 
