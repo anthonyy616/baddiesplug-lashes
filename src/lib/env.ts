@@ -2,6 +2,14 @@ interface Env {
   databaseUrl: string;
   authSecret: string;
   authUrl: string;
+  googleClientId: string;
+  googleClientSecret: string;
+  appleClientId: string;
+  appleClientSecret: string;
+  appleTeamId: string;
+  appleKeyId: string;
+  applePrivateKeyPath: string;
+  applePrivateKey: string;
   resendApiKey: string;
   resendFromEmail: string;
   r2AccountId: string;
@@ -21,6 +29,14 @@ function getEnv(): Env {
     DATABASE_URL: 'databaseUrl',
     AUTH_SECRET: 'authSecret',
     AUTH_URL: 'authUrl',
+    GOOGLE_CLIENT_ID: 'googleClientId',
+    GOOGLE_CLIENT_SECRET: 'googleClientSecret',
+    APPLE_CLIENT_ID: 'appleClientId',
+    APPLE_CLIENT_SECRET: 'appleClientSecret',
+    APPLE_TEAM_ID: 'appleTeamId',
+    APPLE_KEY_ID: 'appleKeyId',
+    APPLE_PRIVATE_KEY_PATH: 'applePrivateKeyPath',
+    APPLE_PRIVATE_KEY: 'applePrivateKey',
     RESEND_API_KEY: 'resendApiKey',
     R2_ACCOUNT_ID: 'r2AccountId',
     R2_ACCESS_KEY_ID: 'r2AccessKeyId',
@@ -47,6 +63,14 @@ function getEnv(): Env {
     authUrl: process.env.AUTH_URL ?? '',
     resendApiKey: process.env.RESEND_API_KEY ?? '',
     resendFromEmail: process.env.RESEND_FROM_EMAIL ?? 'noreply@baddiesplug.com',
+    googleClientId: process.env.GOOGLE_CLIENT_ID ?? '',
+    googleClientSecret: process.env.GOOGLE_CLIENT_SECRET ?? '',
+    appleClientId: process.env.APPLE_CLIENT_ID ?? '',
+    appleClientSecret: process.env.APPLE_CLIENT_SECRET ?? '',
+    appleTeamId: process.env.APPLE_TEAM_ID ?? '',
+    appleKeyId: process.env.APPLE_KEY_ID ?? '',
+    applePrivateKeyPath: process.env.APPLE_PRIVATE_KEY_PATH ?? '',
+    applePrivateKey: process.env.APPLE_PRIVATE_KEY ?? '',
     r2AccountId: process.env.R2_ACCOUNT_ID ?? '',
     r2AccessKeyId: process.env.R2_ACCESS_KEY_ID ?? '',
     r2SecretAccessKey: process.env.R2_SECRET_ACCESS_KEY ?? '',
