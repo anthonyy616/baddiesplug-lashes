@@ -25,10 +25,8 @@ interface BookingIntent {
   phone: string;
   notes: string;
   step: number;
-}
-
-const INTENT_KEY = 'bookingIntent';
-
+}const INTENT_KEY = 'bookingIntent';
+const SELECTED_SERVICE_KEY = 'selectedService';
 export default function BookingFlow() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -53,6 +51,9 @@ export default function BookingFlow() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [user, setUser] = useState<{ name: string; email: string; phone?: string | null } | null>(null);
   const restoredRef = useRef(false);
+
+  // Pre-selected service from a service detail page (persisted in localStorage)
+  const [preselectService, setPreselectService] = useState<SelectableService | null>(null);
 
   // Load catalog
   useEffect(() => {
@@ -130,6 +131,62 @@ export default function BookingFlow() {
     }
   }, [services, addons]);
 
+  // Apply a pre-selected service from a service detail page.
+  // This survives refreshes and long idle periods because it's kept in
+  // localStorage until the user books or manually clears it.
+  // We confirm the current price from the server so the displayed price is
+  // always authoritative (not a stale snapshot from when the user clicked).
+  useEffect(() => {
+    if (services.length === 0) return;
+
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const raw = localStorage.getItem(SELECTED_SERVICE_KEY);
+        if (!raw) return;
+        const selected: {
+          slug?: string;
+          serviceId?: string;
+          serviceName?: string;
+          price?: number;
+        } = JSON.parse(raw);
+
+        // Prefer an exact catalog match by id.
+        let matched = services.find((s) => s.id === selected.serviceId);
+
+        // If the catalog doesn't have it yet, ask the server for the
+        // authoritative record (handles price changes since the click).
+        if (!matched && selected.serviceId) {
+          try {
+            const res = await fetch(`/api/services?id=${selected.serviceId}`);
+            if (res.ok) {
+              const data = await res.json();
+              const serverService = data.service as
+                | { id: string; name: string; price: number; description: string; durationMinutes: number; category: string; slug: string }
+                | null;
+              if (serverService) matched = serverService as SelectableService;
+            }
+          } catch {
+            /* non-fatal */
+          }
+        }
+
+        if (!cancelled && matched && !selectedServices.some((s) => s.id === matched.id)) {
+          setSelectedServices([matched]);
+          setPreselectService(matched);
+          // Keep the key so refreshes restore the selection.
+        }
+      } catch {
+        // Corrupt key — ignore; the flow still shows the full service list.
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [services, selectedServices]);
+
   // Persist intent on every change
   useEffect(() => {
     const intent: BookingIntent & { _savedAt: number } = {
@@ -190,6 +247,9 @@ export default function BookingFlow() {
     [selectedServices, selectedAddons]
   );
 
+  const formatPriceHdr = (kobo: number) =>
+    new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN', minimumFractionDigits: 0 }).format(kobo / 100);
+
   const canContinue = useMemo(() => {
     switch (STEPS[stepIndex]) {
       case 'services':
@@ -244,6 +304,7 @@ export default function BookingFlow() {
         setCreatedBookingId(data.bookingId);
         setBookingResult({ reference: data.reference, whatsappUrl: data.whatsappUrl });
         localStorage.removeItem(INTENT_KEY);
+        localStorage.removeItem(SELECTED_SERVICE_KEY);
       } else {
         const friendly =
           data.error === 'slot_no_longer_available'
@@ -307,8 +368,19 @@ export default function BookingFlow() {
             {STEPS[stepIndex] === 'services' && (
               <section aria-label="Select your services">
                 <h2 className="font-display text-2xl text-ink dark:text-ink-dark mb-6">
-                  Select your services
+                  {preselectService ? (
+                    <>
+                      {preselectService.name} — {formatPriceHdr(preselectService.price)}
+                    </>
+                  ) : (
+                    'Select your services'
+                  )}
                 </h2>
+                {preselectService && (
+                  <p className="text-sm text-ink-secondary dark:text-ink-dark-secondary mb-4">
+                    Continuing from {preselectService.name}. Choose a date and time to confirm.
+                  </p>
+                )}
                 <ServiceCards
                   services={services}
                   selectedIds={new Set(selectedServices.map((s) => s.id))}

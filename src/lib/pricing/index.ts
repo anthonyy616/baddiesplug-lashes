@@ -150,6 +150,28 @@ export async function getServiceBySlug(slug: string) {
 }
 
 /**
+ * Get a service by slug, joined with its images (ordered).
+ * Used by the service detail page and by the booking flow pre-select.
+ */
+export async function getServiceBySlugWithImages(slug: string) {
+  const service = await db.query.services.findFirst({
+    where: eq(services.slug, slug),
+  });
+
+  if (!service) return null;
+
+  const images = await db.query.serviceImages.findMany({
+    where: eq(serviceImages.serviceId, service.id),
+    orderBy: (img) => [img.displayOrder],
+  });
+
+  return {
+    ...service,
+    images,
+  };
+}
+
+/**
  * Get service with images
  */
 export async function getServiceWithImages(id: string) {

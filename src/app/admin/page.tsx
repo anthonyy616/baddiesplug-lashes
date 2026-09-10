@@ -1,5 +1,5 @@
 import { auth } from '@/lib/auth';
-import { db } from '@/lib/db';
+import { db, users } from '@/lib/db';
 import { bookings, payments } from '@/lib/db/schema';
 import { eq, and, or, desc, sql } from 'drizzle-orm';
 import Link from 'next/link';
@@ -257,7 +257,7 @@ async function getPendingBookings(limit: number) {
     // Get customer names
     return Promise.all(pending.map(async (booking: any) => {
       const customer = await db.query.users.findFirst({
-        where: eq(bookings.customerId, booking.customerId),
+        where: eq(users.id, booking.customerId),
       });
       return { ...booking, customerName: customer?.name || 'Unknown' };
     }));
@@ -274,7 +274,7 @@ async function getTodayBookings(limit: number) {
     // Get customer names
     return Promise.all(bookingsList.slice(0, limit).map(async (booking: any) => {
       const customer = await db.query.users.findFirst({
-        where: eq(bookings.customerId, booking.customerId),
+        where: eq(users.id, booking.customerId),
       });
       return { ...booking, customerName: customer?.name || 'Unknown' };
     }));

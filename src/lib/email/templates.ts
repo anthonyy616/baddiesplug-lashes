@@ -64,6 +64,19 @@ export function generateAppointmentReminderEmail(input: BookingEmailBase & {
   `);
 }
 
+export function generateBookingRescheduledEmail(input: BookingEmailBase & {
+  previousReference: string;
+  services: string[];
+}): string {
+  return baseEmail('Booking Rescheduled', input, `
+    <p>Your booking has been rescheduled by the admin.</p>
+    <p><strong>Previous reference:</strong> ${escapeHtml(input.previousReference)}</p>
+    ${serviceList(input.services, [])}
+    <p>Your new appointment details are above.</p>
+    <p>If you have any questions, please contact us.</p>
+  `);
+}
+
 // ---------- shared helpers ----------
 
 function escapeHtml(value: string): string {

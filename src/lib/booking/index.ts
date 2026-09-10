@@ -82,15 +82,10 @@ export async function createBooking(
     const now = new Date();
 
     await db.transaction(async (tx) => {
-      // Re-validate inside the transaction for the strongest consistency
-      // available at this isolation level; the partial unique index below is
-      // the final guard against concurrent bookings.
-      const stillAvailable = await isSlotAvailable(date, startTime, endTime);
-      if (!stillAvailable.available) {
-        throw new SlotConflictError(stillAvailable.reason || 'Slot not available');
-      }
-
-      // Insert booking — conflicts surface as unique violations
+      // Insert booking — concurrent conflicts surface as unique violations
+      // against the partial unique index on (date, start, end) for
+      // pending/confirmed bookings. The pre-transaction availability check
+      // above is the user-facing guard; the unique index is the race guard.
       await tx.insert(bookings).values({
         id: bookingId,
         reference,
@@ -98,7 +93,7 @@ export async function createBooking(
         appointmentDate: date,
         startTime,
         endTime,
-        status: 'pending',
+        status: 'confirmed',
         phone,
         customerNotes: notes || '',
         subtotal: priceSnapshot.subtotal,
@@ -135,20 +130,20 @@ export async function createBooking(
         );
       }
 
-      // Admin notification
+      // Admin notification (so the admin sees new bookings via the badge)
       await tx.insert(notifications).values({
         id: uuidv4(),
         type: 'new_booking',
         bookingId,
-        title: 'New Booking Request',
-        message: `Booking reference ${reference} requires attention`,
+        title: 'New Booking',
+        message: `Booking reference ${reference} was created`,
         isRead: false,
         createdAt: now,
       });
 
       // Durable email event — booking transaction is independent of delivery
       await queueEmailEvent({
-        eventType: 'booking.requested',
+        eventType: 'booking.confirmed',
         recipient: user.email,
         bookingId,
         payload: {
@@ -161,8 +156,6 @@ export async function createBooking(
           addons: priceSnapshot.addons.map((a) => a.name),
           total: priceSnapshot.total,
           depositRequired: priceSnapshot.depositRequired,
-          phone,
-          notes,
         },
       });
     });
@@ -448,7 +441,7 @@ export async function rescheduleBooking(
         appointmentDate: newDate,
         startTime: newStartTime,
         endTime: newEndTime,
-        status: 'pending',
+        status: 'confirmed',
         phone: originalBooking.phone,
         customerNotes: originalBooking.customerNotes,
         subtotal: originalBooking.subtotal,

@@ -1,17 +1,17 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { getServiceWithImages, getServiceBySlug } from '@/lib/pricing';
+import { getServiceBySlugWithImages } from '@/lib/pricing';
 import ServiceGallery from './ServiceGallery';
+import BookNowButton from '@/components/BookNowButton';
 
 export const dynamic = 'force-dynamic';
 
 interface PageProps {
   params: Promise<{ slug: string }>;
 }
-
 export default async function ServiceDetailPage({ params }: PageProps) {
   const { slug } = await params;
-  const service = await getServiceWithImagesBySlug(slug);
+  const service = await getServiceBySlugWithImages(slug);
 
   if (!service || !service.isActive) {
     notFound();
@@ -62,12 +62,12 @@ export default async function ServiceDetailPage({ params }: PageProps) {
               </div>
             )}
 
-            <Link
-              href="/booking"
-              className="inline-block mt-8 bg-burgundy text-white px-8 py-4 rounded-lg font-semibold hover:bg-burgundy/90 transition-colors"
-            >
-              Book Now
-            </Link>
+            <BookNowButton
+              slug={service.slug}
+              serviceId={service.id}
+              serviceName={service.name}
+              price={service.price}
+            />
           </div>
         </div>
       </main>
@@ -75,9 +75,3 @@ export default async function ServiceDetailPage({ params }: PageProps) {
   );
 }
 
-async function getServiceWithImagesBySlug(slug: string) {
-  const service = await getServiceBySlug(slug);
-  if (!service) return null;
-  const withImages = await getServiceWithImages(service.id);
-  return withImages;
-}

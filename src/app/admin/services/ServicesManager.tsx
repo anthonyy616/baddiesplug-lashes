@@ -1,7 +1,14 @@
-'use client';
-
-import { useState } from 'react';
+'use client';import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import ServiceImageUploader from '@/components/admin/ServiceImageUploader';
+
+interface ServiceImage {
+  id: string;
+  storageKey: string;
+  publicUrl: string;
+  altText: string | null;
+  displayOrder: number;
+}
 
 interface ServiceRow {
   id: string;
@@ -12,14 +19,14 @@ interface ServiceRow {
   durationMinutes: number;
   isActive: boolean;
   displayOrder: number;
+  images?: ServiceImage[];
 }
 
 const formatPrice = (kobo: number) =>
-  new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN', minimumFractionDigits: 0 }).format(kobo / 100);
-
-export default function ServicesManager({ initialServices }: { initialServices: ServiceRow[] }) {
+  new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN', minimumFractionDigits: 0 }).format(kobo / 100);export default function ServicesManager({ initialServices }: { initialServices: ServiceRow[] }) {
   const router = useRouter();
   const [items, setItems] = useState(initialServices);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -102,6 +109,31 @@ export default function ServicesManager({ initialServices }: { initialServices: 
     await patch(service.id, { displayOrder: service.displayOrder + direction });
   };
 
+  const fetchImagesFor = useCallback(async (id: string) => {
+    try {
+      const res = await fetch(`/api/admin/service-images?serviceId=${id}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      setItems((prev) =>
+        prev.map((s) => (s.id === id ? { ...s, images: data.images || [] } : s))
+      );
+    } catch {
+      /* non-fatal */
+    }
+  }, []);
+
+  // Refresh image lists when the server data changes
+  useEffect(() => {
+    setItems((prev) =>
+      prev.map((s) => ({
+        ...s,
+        images: s.images ?? [],
+      }))
+    );
+    // Load images for each service once
+    Promise.all(initialServices.map((s) => fetchImagesFor(s.id))).catch(() => {});
+  }, [initialServices, fetchImagesFor]);
+
   const lash = items.filter((s) => s.category === 'lash');
   const brow = items.filter((s) => s.category === 'eyebrow');
 
@@ -125,11 +157,25 @@ export default function ServicesManager({ initialServices }: { initialServices: 
           {list.length === 0 && (
             <tr><td colSpan={6} className="px-4 py-6 text-center text-gray-500 text-sm">None yet</td></tr>
           )}
-          {list.map((s) => (
+          {list.map((s) => [
             <tr key={s.id} className={s.isActive ? '' : 'opacity-50'}>
               <td className="px-4 py-3">
-                <p className="font-medium text-gray-900">{s.name}</p>
-                <p className="text-xs text-gray-500 line-clamp-1">{s.description}</p>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="font-medium text-gray-900">{s.name}</p>
+                    <p className="text-xs text-gray-500 line-clamp-1">{s.description}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setExpandedId(expandedId === s.id ? null : s.id)}
+                    className="ml-2 text-xs text-burgundy dark:text-burgundy-lifted hover:underline"
+                    aria-expanded={expandedId === s.id}
+                  >
+                    {expandedId === s.id ? 'Hide' : 'Images'}
+                    {' '}
+                    {s.images?.length !== undefined ? `(${s.images.length})` : ''}
+                  </button>
+                </div>
               </td>
               <td className="px-4 py-3">
                 <input
@@ -172,8 +218,23 @@ export default function ServicesManager({ initialServices }: { initialServices: 
                   Delete
                 </button>
               </td>
-            </tr>
-          ))}
+            </tr>,
+            expandedId === s.id ? (
+              <tr key={`${s.id}-images`}>
+                <td colSpan={6} className="px-4 py-4">
+                  <ServiceImageUploader
+                    serviceId={s.id}
+                    serviceName={s.name}
+                    images={s.images ?? []}
+                    onImagesChange={(imgs) => {
+                      setItems((prev) => prev.map((row) => (row.id === s.id ? { ...row, images: imgs } : row)));
+                      fetchImagesFor(s.id);
+                    }}
+                  />
+                </td>
+              </tr>
+            ) : null,
+          ])}
         </tbody>
       </table>
     </div>

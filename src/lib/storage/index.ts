@@ -67,6 +67,19 @@ export async function uploadToR2(
   storageKey: string,
   contentType: string
 ): Promise<UploadResult> {
+  return uploadToR2WithCache(buffer, storageKey, contentType, false);
+}
+
+/**
+ * Upload a file to R2 with a public Cache-Control header.
+ * Used for service images so the first display is cached at the CDN/browser.
+ */
+export async function uploadToR2WithCache(
+  buffer: Buffer,
+  storageKey: string,
+  contentType: string,
+  publicCache: boolean
+): Promise<UploadResult> {
   try {
     const client = getS3Client();
     await client.send(
@@ -75,6 +88,7 @@ export async function uploadToR2(
         Key: storageKey,
         Body: buffer,
         ContentType: contentType,
+        CacheControl: publicCache ? 'public, max-age=31536000, immutable' : undefined,
       })
     );
 

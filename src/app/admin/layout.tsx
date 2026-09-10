@@ -4,7 +4,7 @@ import { cookies } from 'next/headers';
 import { getAdminSession, ADMIN_COOKIE_NAME } from '@/lib/admin-auth';
 import { db } from '@/lib/db';
 import { notifications } from '@/lib/db/schema';
-import { eq, sql } from 'drizzle-orm';
+import { eq, and, sql } from 'drizzle-orm';
 
 export default async function AdminLayout({
   children,
@@ -23,7 +23,7 @@ export default async function AdminLayout({
     const result = await db
       .select({ count: sql<number>`count(*)` })
       .from(notifications)
-      .where(eq(notifications.isRead, false));
+      .where(and(eq(notifications.isRead, false), sql`${notifications.customerId} IS NULL`));
     unreadNotifications = result[0]?.count || 0;
   } catch {
     unreadNotifications = 0;

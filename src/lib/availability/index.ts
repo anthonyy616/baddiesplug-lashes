@@ -29,7 +29,7 @@ function isValidTime(t: string): boolean {
  * Applies the booking window and same-day rules (informational; the server
  * re-validates authoritatively at booking time).
  */
-export async function getAvailableSlots(date: string): Promise<AvailableSlot[]> {
+export async function getAvailableSlots(date: string, _db?:typeof db): Promise<AvailableSlot[]> {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
     return [];
   }
@@ -38,7 +38,7 @@ export async function getAvailableSlots(date: string): Promise<AvailableSlot[]> 
   const standardSlots = getStandardSlots(date);
 
   // Get admin overrides for the date
-  const overrides = await getOverrides(date);
+  const overrides = await getOverrides(date, _db);
 
   const standardKeys = new Set(standardSlots.map(slotToKey));
 
@@ -75,7 +75,7 @@ export async function getAvailableSlots(date: string): Promise<AvailableSlot[]> 
   const blockedSlots = getBlockedSlotKeys(date, overrides);
 
   // Get occupied slots (pending and confirmed bookings)
-  const bookedSlots = await getBookedSlots(date);
+  const bookedSlots = await getBookedSlots(date, _db);
 
   return allSlots.map((slot) => {
     const key = slotToKey(slot);
@@ -102,7 +102,8 @@ export async function getAvailableSlots(date: string): Promise<AvailableSlot[]> 
 export async function isSlotAvailable(
   date: string,
   startTime: string,
-  endTime: string
+  endTime: string,
+  _db?: DbLike
 ): Promise<{ available: boolean; reason?: string }> {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !isValidTime(startTime) || !isValidTime(endTime)) {
     return { available: false, reason: 'invalid_slot' };
@@ -119,7 +120,7 @@ export async function isSlotAvailable(
   // The slot must exist as a standard slot OR be explicitly opened by an override.
   const standardSlots = getStandardSlots(date);
   const standardKeys = new Set(standardSlots.map(slotToKey));
-  const overrides = await getOverrides(date);
+  const overrides = await getOverrides(date, _db);
   const openedKeys = new Set(
     overrides
       .filter((o) => o.mode === 'available')
@@ -154,7 +155,7 @@ export async function isSlotAvailable(
   }
 
   // Check if slot is already booked
-  const bookedSlots = await getBookedSlots(date);
+  const bookedSlots = await getBookedSlots(date, _db);
   if (bookedSlots.has(slotKey)) {
     return { available: false, reason: 'booked' };
   }
@@ -168,8 +169,11 @@ interface OverrideRow {
   mode: string;
 }
 
-function getOverrides(date: string): Promise<OverrideRow[]> {
-  return db
+type DbLike = typeof db;
+
+function getOverrides(date: string, _db?: DbLike): Promise<OverrideRow[]> {
+  const client = _db ?? db;
+  return client
     .select({ startTime: availabilityOverrides.startTime, endTime: availabilityOverrides.endTime, mode: availabilityOverrides.mode })
     .from(availabilityOverrides)
     .where(eq(availabilityOverrides.date, date));
@@ -190,10 +194,11 @@ function getBlockedSlotKeys(date: string, overrides: OverrideRow[]): Set<string>
 /**
  * Get occupied slots for a date (pending and confirmed bookings).
  */
-export async function getBookedSlots(date: string): Promise<Set<string>> {
+export async function getBookedSlots(date: string, _db?: DbLike): Promise<Set<string>> {
+  const client = _db ?? db;
   const booked = new Set<string>();
 
-  const activeBookings = await db.query.bookings.findMany({
+  const activeBookings = await client.query.bookings.findMany({
     where: and(
       eq(bookings.appointmentDate, date),
       inArray(bookings.status, [...OCCUPYING_STATUSES])

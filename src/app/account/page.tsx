@@ -4,6 +4,10 @@ import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { getCustomerBookings } from '@/lib/booking';
 import { formatLagosTime } from '@/lib/timezone';
+import { db } from '@/lib/db';
+import { notifications } from '@/lib/db/schema';
+import { eq, and, sql } from 'drizzle-orm';
+import CustomerNotifications from '@/components/account/CustomerNotifications';
 
 export const dynamic = 'force-dynamic';
 
@@ -16,6 +20,23 @@ export default async function AccountPage() {
   }
 
   await requireAuth();
+
+  // Unread customer notification count for header
+  let unreadCount = 0;
+  try {
+    const result = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(notifications)
+      .where(
+        and(
+          eq(notifications.customerId, user.id),
+          eq(notifications.isRead, false)
+        )
+      );
+    unreadCount = result[0]?.count || 0;
+  } catch {
+    unreadCount = 0;
+  }
 
   // Returns only upcoming/current bookings — customers never see appointment history
   const bookings = await getCustomerBookings(user.id);
@@ -42,6 +63,11 @@ export default async function AccountPage() {
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-2xl font-bold text-gray-900">My Account</h1>
+              {unreadCount > 0 && (
+                <span className="inline-flex items-center gap-1 px-2 py-1 bg-burgundy/10 text-burgundy text-sm rounded-full ml-4">
+                  {unreadCount} unread notification{unreadCount !== 1 ? 's' : ''}
+                </span>
+              )}
               <p className="text-gray-600">Welcome back, {user?.name}</p>
             </div>
             <Link
@@ -52,6 +78,8 @@ export default async function AccountPage() {
             </Link>
           </div>
         </div>
+
+        <CustomerNotifications />
 
         {/* Current Bookings */}
         <div className="bg-white rounded-lg shadow p-6">

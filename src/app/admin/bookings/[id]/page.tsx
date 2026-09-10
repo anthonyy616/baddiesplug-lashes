@@ -3,8 +3,7 @@ import { requireAdmin } from '@/lib/auth/types';
 import { notFound } from 'next/navigation';
 import { formatLagosTime } from '@/lib/timezone';
 import { getServiceWithImages } from '@/lib/pricing';
-import { db } from '@/lib/db';
-import { users } from '@/lib/db/schema';
+import { db, bookings, users } from '@/lib/db';
 import { eq } from 'drizzle-orm';
 import Link from 'next/link';
 import BookingActionsClient from './BookingActionsClient';
@@ -28,6 +27,14 @@ export default async function AdminBookingDetailPage({ params }: PageProps) {
   const customer = await db.query.users.findFirst({
     where: eq(users.id, booking.customerId),
   });
+
+  // Fetch previous booking info if this is a rescheduled booking
+  let previousBooking = null;
+  if (booking.previousBookingId) {
+    previousBooking = await db.query.bookings.findFirst({
+      where: eq(bookings.id, booking.previousBookingId),
+    });
+  }
 
   // Get service details
   const serviceDetails = await Promise.all(
@@ -82,6 +89,23 @@ export default async function AdminBookingDetailPage({ params }: PageProps) {
                 {booking.status.replace('_', ' ')}
               </span>
             </div>
+
+            {previousBooking && (
+              <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                <p className="text-sm text-amber-800">
+                  <span className="font-medium">Rescheduled from:</span>
+                  {' '}
+                  <Link
+                    href={`/admin/bookings/${previousBooking.id}`}
+                    className="text-burgundy hover:text-burgundy/80 font-mono"
+                  >
+                    {previousBooking.reference}
+                  </Link>
+                  {' '}
+                  ({formatLagosTime(new Date(previousBooking.appointmentDate + 'T00:00:00'), 'MMM d, yyyy')} at {previousBooking.startTime})
+                </p>
+              </div>
+            )}
             <div className="grid grid-cols-2 gap-4 text-sm">
               <div>
                 <p className="text-gray-600">Created</p>

@@ -5,11 +5,6 @@ import { createBooking } from '@/lib/booking';
 
 export async function POST(request: NextRequest) {
   try {
-    const session = await auth();
-    if (!session?.user) {
-      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
-    }
-
     await requireAuth();
 
     const body = await request.json();

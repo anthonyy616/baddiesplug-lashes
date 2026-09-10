@@ -19,6 +19,7 @@ export type EmailEventType =
   | 'booking.confirmed'
   | 'booking.customer_cancelled'
   | 'booking.admin_cancelled'
+  | 'booking.rescheduled'
   | 'appointment.reminder';
 
 export type EmailEventStatus = 'pending' | 'processing' | 'sent' | 'failed';

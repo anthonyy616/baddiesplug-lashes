@@ -8,6 +8,7 @@ import {
   generateBookingConfirmationEmail,
   generateCancellationEmail,
   generateAppointmentReminderEmail,
+  generateBookingRescheduledEmail,
 } from './templates';
 import { sendEmail } from './send';
 
@@ -145,6 +146,8 @@ function emailSubject(eventType: EmailEventType, payload: Record<string, unknown
       return `Booking cancelled — ${reference}`;
     case 'booking.admin_cancelled':
       return `Booking cancelled — ${reference}`;
+    case 'booking.rescheduled':
+      return `Booking rescheduled — ${reference}`;
     case 'appointment.reminder':
       return `Appointment reminder — ${reference}`;
     default:
@@ -195,6 +198,16 @@ function renderEmailHtml(eventType: EmailEventType, payload: Record<string, unkn
         startTime: str('startTime'),
         endTime: str('endTime'),
         cancelledBy: eventType === 'booking.admin_cancelled' ? 'admin' : 'customer',
+      });
+    case 'booking.rescheduled':
+      return generateBookingRescheduledEmail({
+        customerName: str('customerName'),
+        reference: str('reference'),
+        previousReference: str('previousReference'),
+        date: str('date'),
+        startTime: str('startTime'),
+        endTime: str('endTime'),
+        services: arr('services'),
       });
     case 'appointment.reminder':
       return generateAppointmentReminderEmail({

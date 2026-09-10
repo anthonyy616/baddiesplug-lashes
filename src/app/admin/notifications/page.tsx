@@ -12,6 +12,9 @@ export default async function AdminNotificationsPage() {
     limit: 200,
   });
 
+  // Filter out customer-facing notifications (customer_ prefix) from admin list
+  const items = all.filter((n) => !n.type.startsWith('customer_'));
+
   return (
     <div className="space-y-6">
       <div>
@@ -20,7 +23,7 @@ export default async function AdminNotificationsPage() {
       </div>
 
       <NotificationsList
-        items={all.map((n) => ({
+        items={items.map((n) => ({
           id: n.id,
           type: n.type,
           title: n.title,
