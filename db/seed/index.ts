@@ -1,8 +1,46 @@
 import 'dotenv/config';
+import { db } from '@/lib/db';
+import { services, addons, adminAuth } from '@/lib/db/schema';
+import { hash } from 'bcryptjs';
+import { eq } from 'drizzle-orm';
 import { neon } from '@neondatabase/serverless';
-import { v4 as uuidv4 } from 'uuid';
 
-const sql = neon(process.env.DATABASE_URL!);
+// Keep a raw Neon client available in case drizzle-orm DB path is misconfigured.
+export const sql = neon(process.env.DATABASE_URL!);
+
+/*
+Usage:
+  npm run db:seed -- --admin-user <username> --admin-pass <password>
+
+If admin args are omitted, only the catalog (services/add-ons) is seeded.
+"username" is what you type at /admin/login — it is not an email.
+*/
+
+function parseAdminArgs() {
+  const args = process.argv.slice(2);
+  let username: string | undefined;
+  let password: string | undefined;
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] === '--admin-user' && i + 1 < args.length) {
+      username = args[++i];
+    } else if (args[i] === '--admin-pass' && i + 1 < args.length) {
+      password = args[++i];
+    }
+  }
+  return { username, password };
+}
+
+const { username: adminUsername, password: adminPassword } = parseAdminArgs();
+
+if (adminUsername && !adminPassword) {
+  console.error('Error: --admin-pass is required when --admin-user is provided.');
+  process.exit(1);
+}
+
+if (!adminUsername && adminPassword) {
+  console.error('Error: --admin-user is required when --admin-pass is provided.');
+  process.exit(1);
+}
 
 // Sample Lash Services
 const lashServices = [
@@ -69,7 +107,7 @@ const lashServices = [
 ];
 
 // Sample Eyebrow Services
-const eyebrowServices = [
+const eyebrowServicesSeed = [
   {
     name: 'Brow Shape & Trim',
     slug: 'brow-shape-trim',
@@ -133,46 +171,46 @@ const eyebrowServices = [
 ];
 
 // Sample Add-ons
-const addons = [
+const addonsSeed = [
   {
     name: 'LED Under Eye Treatment',
     description: 'LED light therapy to reduce puffiness and dark circles.',
-    price: 5000, // ₦5,000 in kobo
+    price: 5000,
     isActive: true,
     displayOrder: 1,
   },
   {
     name: 'Lash Lift Add-On',
     description: 'Add a lash lift to your lash extension appointment.',
-    price: 10000, // ₦10,000 in kobo
+    price: 10000,
     isActive: true,
     displayOrder: 2,
   },
   {
     name: 'Brow Lamination Add-On',
     description: 'Add brow lamination to your brow service.',
-    price: 8000, // ₦8,000 in kobo
+    price: 8000,
     isActive: true,
     displayOrder: 3,
   },
   {
     name: 'Lash Tint Add-On',
     description: 'Add lash tint to any lash service.',
-    price: 5000, // ₦5,000 in kobo
+    price: 5000,
     isActive: true,
     displayOrder: 4,
   },
   {
     name: 'Brow Tint Add-On',
     description: 'Add brow tint to any brow service.',
-    price: 5000, // ₦5,000 in kobo
+    price: 5000,
     isActive: true,
     displayOrder: 5,
   },
   {
     name: 'Under Eye Brightening',
     description: 'Concealer application and brightening treatment.',
-    price: 3000, // ₦3,000 in kobo
+    price: 3000,
     isActive: true,
     displayOrder: 6,
   },
@@ -182,70 +220,81 @@ async function seed() {
   console.log('🌱 Starting database seed...\n');
 
   try {
-    // Create admin user
-    console.log('Creating admin user...');
-    
-    // Check if admin exists first
-    const existingAdmin = await sql`
-      SELECT id FROM users WHERE email = ${process.env.ADMIN_EMAIL || 'admin@baddiesplug.com'}
-    `;
-    
-    if (existingAdmin.length === 0) {
-      const adminId = uuidv4();
-      await sql`
-        INSERT INTO users (id, auth_user_id, name, email, role, created_at, updated_at)
-        VALUES (${adminId}, ${uuidv4()}, 'Admin User', ${process.env.ADMIN_EMAIL || 'admin@baddiesplug.com'}, 'admin', NOW(), NOW())
-      `;
-      console.log('✓ Admin user created');
-    } else {
-      console.log('✓ Admin user already exists');
-    }
-    console.log('');
+    // --- Admin user (new cookie-based auth) ---
+    if (adminUsername && adminPassword) {
+      console.log('Creating admin user...');
+      const existing = await db
+        .query.adminAuth
+        .findFirst({ where: eq(adminAuth.username, adminUsername) });
 
-    // Create services
+      if (!existing) {
+        const hashed = await hash(adminPassword, 1);
+        await db.insert(adminAuth).values({
+          username: adminUsername,
+          passwordHash: hashed,
+        }).onConflictDoNothing();
+        console.log('✓ Admin user created:', adminUsername);
+      } else {
+        console.log('✓ Admin user already exists:', adminUsername);
+      }
+      console.log('');
+    }
+
+    // --- Services ---
     console.log('Creating services...');
     let serviceCount = 0;
-    for (const service of [...lashServices, ...eyebrowServices]) {
-      // Check if service exists
-      const existingService = await sql`
-        SELECT id FROM services WHERE slug = ${service.slug}
-      `;
-      
-      if (existingService.length === 0) {
-        await sql`
-          INSERT INTO services (id, name, slug, category, description, notes, price, duration_minutes, is_active, display_order, created_at, updated_at)
-          VALUES (${uuidv4()}, ${service.name}, ${service.slug}, ${service.category}, ${service.description}, ${service.notes}, ${service.price}, ${service.durationMinutes}, true, ${service.displayOrder}, NOW(), NOW())
-        `;
+    for (const service of [...lashServices, ...eyebrowServicesSeed]) {
+      const existingService = await db
+        .query.services
+        .findFirst({ where: eq(services.slug, service.slug) });
+
+      if (!existingService) {
+        await db.insert(services).values({
+          id: crypto.randomUUID(),
+          name: service.name,
+          slug: service.slug,
+          category: service.category,
+          description: service.description,
+          notes: service.notes,
+          price: service.price,
+          durationMinutes: service.durationMinutes,
+          isActive: true,
+          displayOrder: service.displayOrder,
+        });
         serviceCount++;
       }
     }
     console.log(`✓ ${serviceCount} services created\n`);
 
-    // Create addons
+    // --- Add-ons ---
     console.log('Creating add-ons...');
     let addonCount = 0;
-    for (const addon of addons) {
-      // Check if addon exists
-      const existingAddon = await sql`
-        SELECT id FROM addons WHERE name = ${addon.name}
-      `;
-      
-      if (existingAddon.length === 0) {
-        await sql`
-          INSERT INTO addons (id, name, description, price, is_active, display_order, created_at, updated_at)
-          VALUES (${uuidv4()}, ${addon.name}, ${addon.description}, ${addon.price}, ${addon.isActive}, ${addon.displayOrder}, NOW(), NOW())
-        `;
+    for (const addonItem of addonsSeed) {
+      const existingAddon = await db
+        .query.addons
+        .findFirst({ where: eq(addons.name, addonItem.name) });
+
+      if (!existingAddon) {
+        await db.insert(addons).values({
+          id: crypto.randomUUID(),
+          name: addonItem.name,
+          description: addonItem.description,
+          price: addonItem.price,
+          isActive: addonItem.isActive,
+          displayOrder: addonItem.displayOrder,
+        });
         addonCount++;
       }
     }
     console.log(`✓ ${addonCount} add-ons created\n`);
 
     console.log('✅ Seed completed successfully!');
-    console.log('\n📋 Summary:');
-    console.log(`   - Admin email: ${process.env.ADMIN_EMAIL || 'admin@baddiesplug.com'}`);
-    console.log(`   - ${serviceCount} services (lash & brow)`);
-    console.log(`   - ${addonCount} add-ons`);
-    console.log('\n⚠️  Note: You will need to set a password for the admin user through Neon Auth.');
+    if (adminUsername) {
+      console.log(`\n📋 Summary:`);
+      console.log(`   - Admin username: ${adminUsername}`);
+      console.log(`   - ${serviceCount} services (lash & brow)`);
+      console.log(`   - ${addonCount} add-ons`);
+    }
   } catch (error) {
     console.error('❌ Seed failed:', error);
     process.exit(1);
