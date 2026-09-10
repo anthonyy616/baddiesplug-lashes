@@ -5,6 +5,7 @@ import { db } from '@/lib/db';
 import { users, credentials } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 import { v4 as uuidv4 } from 'uuid';
+import { checkRateLimit, RateLimits, createRateLimitKey } from '@/lib/rate-limit';
 
 const registerSchema = z.object({
   email: z.string().email(),
@@ -14,6 +15,23 @@ const registerSchema = z.object({
 
 export async function POST(request: NextRequest) {
   try {
+    // Rate limit registration attempts
+    const identifier = createRateLimitKey(request);
+    const rateLimitResult = await checkRateLimit(identifier, RateLimits.login);
+    if (!rateLimitResult.allowed) {
+      return NextResponse.json(
+        { error: 'Too many registration attempts. Please try again later.' },
+        {
+          status: 429,
+          headers: {
+            'Retry-After': String(rateLimitResult.retryAfter),
+            'X-RateLimit-Remaining': '0',
+            'X-RateLimit-Reset': rateLimitResult.resetAt.toISOString(),
+          },
+        }
+      );
+    }
+
     const body = await request.json();
     const parsed = registerSchema.safeParse(body);
     if (!parsed.success) {

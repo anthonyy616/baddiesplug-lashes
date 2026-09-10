@@ -314,47 +314,81 @@ export default function BookingFlow() {
     setError(null);
     setIsSubmitting(true);
 
-    try {
-      const res = await fetch('/api/booking', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          serviceIds: selectedServices.map((s) => s.id),
-          addonIds: selectedAddons.map((a) => a.id),
-          date: selectedDate,
-          startTime: selectedSlot?.startTime,
-          endTime: selectedSlot?.endTime,
-          phone: phone.trim(),
-          notes: notes.trim() || undefined,
-        }),
-      });
+    // Retry configuration for transient failures
+    const MAX_RETRIES = 2;
+    const BASE_DELAY_MS = 1000;
+    let attempt = 0;
+    let lastError: string | null = null;
 
-      const data = await res.json();
+    while (attempt <= MAX_RETRIES) {
+      try {
+        const res = await fetch('/api/booking', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            serviceIds: selectedServices.map((s) => s.id),
+            addonIds: selectedAddons.map((a) => a.id),
+            date: selectedDate,
+            startTime: selectedSlot?.startTime,
+            endTime: selectedSlot?.endTime,
+            phone: phone.trim(),
+            notes: notes.trim() || undefined,
+          }),
+        });
 
-      if (data.success && data.reference) {
-        setCreatedBookingId(data.bookingId);
-        setBookingResult({ reference: data.reference, whatsappUrl: data.whatsappUrl });
-        localStorage.removeItem(INTENT_KEY);
-        localStorage.removeItem(SELECTED_SERVICE_KEY);
-      } else {
-        const friendly =
-          data.error === 'slot_no_longer_available'
-            ? 'Sorry, that slot was just booked by someone else. Please pick another time.'
-            : data.error === 'too_soon'
-              ? 'Same-day appointments need to start at least 1 hour from now.'
-              : data.error === 'outside_booking_window'
-                ? 'Bookings can be made up to 1 month ahead.'
-                : data.error;
-        setError(friendly || 'Failed to create booking. Please try again.');
-        if (data.error === 'slot_no_longer_available' || data.error === 'too_soon') {
-          goToStep(2); // back to date & time
+        const data = await res.json();
+
+        if (data.success && data.reference) {
+          setCreatedBookingId(data.bookingId);
+          setBookingResult({ reference: data.reference, whatsappUrl: data.whatsappUrl });
+          localStorage.removeItem(INTENT_KEY);
+          localStorage.removeItem(SELECTED_SERVICE_KEY);
+          return; // Success
         }
+
+        // Non-transient errors — don't retry
+        if (data.error === 'slot_no_longer_available' || data.error === 'BOOKING_SLOT_UNAVAILABLE') {
+          const friendly = 'Sorry, that slot was just booked by someone else. Please pick another time.';
+          setError(friendly);
+          goToStep(2); // back to date & time
+          setIsSubmitting(false);
+          return;
+        }
+
+        // Rate limited — don't retry immediately, show the error
+        if (res.status === 429) {
+          const retryAfter = res.headers.get('Retry-After');
+          const friendly = retryAfter
+            ? `Too many requests. Please wait ${retryAfter} seconds and try again.`
+            : 'Too many requests. Please wait a moment and try again.';
+          setError(friendly);
+          setIsSubmitting(false);
+          return;
+        }
+
+        // Other server errors — may be transient, retry
+        lastError = data.error || 'Failed to create booking. Please try again.';
+      } catch (err) {
+        // Network error — likely transient, retry
+        lastError = 'Failed to create booking. Please check your connection and try again.';
       }
-    } catch {
-      setError('Failed to create booking. Please check your connection and try again.');
-    } finally {
-      setIsSubmitting(false);
+
+      // Don't retry if this was the last attempt or if it was a non-transient error
+      if (attempt >= MAX_RETRIES || lastError.includes('slot') || lastError.includes('429')) {
+        setError(lastError || 'Failed to create booking. Please try again.');
+        setIsSubmitting(false);
+        return;
+      }
+
+      // Exponential backoff: 1s, 2s, 4s...
+      const delay = BASE_DELAY_MS * Math.pow(2, attempt);
+      await new Promise((resolve) => setTimeout(resolve, delay));
+      attempt++;
     }
+
+    // Exhausted all retries
+    setError(lastError || 'Failed to create booking after multiple attempts. Please try again.');
+    setIsSubmitting(false);
   };
 
   const handleSignIn = () => {

@@ -8,8 +8,15 @@ import {
 } from '@/lib/jobs';
 
 /**
- * Protected cron entry point (Vercel Cron sends the secret automatically as
- * an Authorization header; external schedulers can use ?key= or Bearer).
+ * Protected cron entry point.
+ *
+ * Vercel Cron sends the secret automatically as an Authorization header;
+ * external schedulers can use ?key= or Bearer.
+ *
+ * NOTE: This route is now largely obsolete. The jobs have been migrated to
+ * Inngest functions which handle scheduling, retries, and observability.
+ * This route remains as a safety net / migration compatibility layer.
+ * Consider removing it once Inngest is fully operational and verified.
  */
 function isAuthorized(request: NextRequest): boolean {
   const secret = process.env.CRON_SECRET;
@@ -26,6 +33,9 @@ export async function GET(request: NextRequest) {
   if (!isAuthorized(request)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
+
+  // Log that this legacy endpoint was called (should phase out)
+  console.warn('Legacy /api/jobs endpoint called — migrate to Inngest functions');
 
   const results: Record<string, number> = {};
   const errors: string[] = [];
@@ -54,5 +64,6 @@ export async function GET(request: NextRequest) {
     ranAt: new Date().toISOString(),
     results,
     failedJobs: errors,
+    warning: 'This endpoint will be removed. Migrate to Inngest functions.',
   });
 }

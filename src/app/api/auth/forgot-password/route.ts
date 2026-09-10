@@ -6,12 +6,22 @@ import { eq } from 'drizzle-orm';
 import { v4 as uuidv4 } from 'uuid';
 import { randomBytes } from 'crypto';
 import { sendEmail } from '@/lib/email/send';
+import { checkRateLimit, RateLimits, createRateLimitKey } from '@/lib/rate-limit';
 
 const schema = z.object({ email: z.string().email() });
 
 export async function POST(request: NextRequest) {
   try {
+    // Rate limit password reset requests (per email, not just per IP)
     const body = await request.json();
+    const email = (body.email ?? '').toLowerCase();
+    
+    const identifier = createRateLimitKey(request, email);
+    const rateLimitResult = await checkRateLimit(identifier, RateLimits.passwordReset);
+    if (!rateLimitResult.allowed) {
+      // Always return success to avoid account enumeration, even when rate limited
+      return NextResponse.json({ success: true });
+    }
     const parsed = schema.safeParse(body);
     if (!parsed.success) {
       return NextResponse.json({ error: 'Invalid email address' }, { status: 400 });

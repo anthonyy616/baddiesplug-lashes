@@ -1,0 +1,28 @@
+{
+  "extends": "next/core-web-vitals",
+  "plugins": ["boundaries"],
+  "rules": {
+    "boundaries/element-types": [
+      "error",
+      {
+        "default": {
+          "from": ["src/lib/*"],
+          "allow": ["src/lib/*/index"],
+          "message": "Import from the module's index.ts, not internals"
+        }
+      }
+    ]
+  },
+  "settings": {
+    "boundaries": {
+      "elements": [
+        {
+          "name": "lib-module",
+          "types": ["src/lib/*"],
+          "mode": "file",
+          "boundary": "src/lib/*/index"
+        }
+      ]
+    }
+  }
+}

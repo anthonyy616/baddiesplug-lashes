@@ -11,13 +11,15 @@ import {
   generateBookingRescheduledEmail,
 } from './templates';
 import { sendEmail } from './send';
+import { inngest } from '@/inngest/client';
 
 /**
  * Durable, retryable email events.
  *
  * Email failures must never roll back a booking transaction. We persist an
  * email_events row (inside the booking transaction where applicable) and
- * dispatch asynchronously; failed events are retried by the cron job.
+ * dispatch asynchronously via Inngest events; failed events are retried
+ * automatically by Inngest functions.
  */
 
 const MAX_ATTEMPTS = 5;
@@ -32,8 +34,10 @@ export interface QueueEmailInput {
 
 /** Persist an email event. Safe to call inside a booking transaction. */
 export async function queueEmailEvent(input: QueueEmailInput): Promise<void> {
+  const id = uuidv4();
+  
   await db.insert(emailEvents).values({
-    id: uuidv4(),
+    id,
     eventType: input.eventType,
     bookingId: input.bookingId ?? null,
     recipient: input.recipient,
@@ -42,6 +46,26 @@ export async function queueEmailEvent(input: QueueEmailInput): Promise<void> {
     attempts: 0,
     scheduledFor: input.scheduledFor ?? new Date(),
   });
+  
+  // Emit Inngest event to trigger sending (async, non-blocking)
+  // The booking transaction commits independently of this
+  try {
+    await inngest.send({
+      name: 'email.requested',
+      data: {
+        eventId: id,
+        eventType: input.eventType,
+        recipient: input.recipient,
+        bookingId: input.bookingId,
+        scheduledFor: input.scheduledFor,
+      },
+      // Idempotency key: same event ID = same email, safe to retry
+      id: `email-${id}`,
+    });
+  } catch (error) {
+    // Log but don't throw — email_events row is the durable record
+    console.error('Failed to emit email.requested event:', error);
+  }
 }
 
 /**
@@ -114,7 +138,7 @@ export function dispatchEmailEvent(eventId: string): void {
   });
 }
 
-/** Retry all due pending events (cron entry point). Returns processed count. */
+/** Retry all due pending events (safety net). Returns processed count. */
 export async function retryPendingEmails(limit = 20): Promise<number> {
   const due = await db
     .select({ id: emailEvents.id })

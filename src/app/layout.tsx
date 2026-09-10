@@ -3,12 +3,21 @@ import { Playfair_Display } from 'next/font/google';
 import './globals.css';
 import { AuthProvider } from '@/components/AuthProvider';
 import { ThemeProvider } from '@/components/ThemeProvider';
+import * as Sentry from '@sentry/nextjs';
 
 const playfair = Playfair_Display({
   subsets: ['latin'],
   variable: '--font-playfair',
   display: 'swap',
 });
+
+// Initialize Sentry error tracking
+if (process.env.NODE_ENV === 'production') {
+  Sentry.init({
+    dsn: process.env.NEXT_PUBLIC_SENTRY_DSN,
+    tracesSampleRate: 0.1,
+  });
+}
 
 export const metadata: Metadata = {
   title: 'The Baddies Plug | Luxury Lash & Beauty Services',

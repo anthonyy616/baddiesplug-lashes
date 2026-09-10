@@ -11,6 +11,8 @@ import {
 import { parseSlotToDateTime, getCancellationDeadline } from '@/lib/timezone';
 import { queueEmailEvent, dispatchEmailEvent } from '@/lib/email/events';
 import { generateBookingPaymentLink, generateCancellationLink } from '@/lib/whatsapp';
+import { getPaymentProvider } from '@/lib/payments';
+import type { PaymentRecord } from '@/lib/payments';
 
 export interface CreateBookingResult {
   success: boolean;

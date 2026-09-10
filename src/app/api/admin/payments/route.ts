@@ -4,6 +4,7 @@ import { db } from '@/lib/db';
 import { payments } from '@/lib/db/schema';
 import { desc, eq } from 'drizzle-orm';
 import { v4 as uuidv4 } from 'uuid';
+import { getPaymentProvider } from '@/lib/payments';
 import { requireAdminSession } from '@/lib/admin-auth';
 
 const createSchema = z.object({
@@ -50,19 +51,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Booking not found' }, { status: 404 });
     }
 
-    const [created] = await db
-      .insert(payments)
-      .values({
-        id: uuidv4(),
-        bookingId: parsed.data.bookingId,
-        amount: parsed.data.amount,
-        paymentType: parsed.data.paymentType,
-        note: parsed.data.note,
-        recordedByAdminId: null,
-      })
-      .returning();
-
-    void admin;
+    const provider = getPaymentProvider();
+    const created = await provider.recordPayment(
+      parsed.data.bookingId,
+      parsed.data.amount,
+      parsed.data.paymentType,
+      parsed.data.note,
+      admin
+    );
 
     return NextResponse.json({ success: true, payment: created });
   } catch (error) {
