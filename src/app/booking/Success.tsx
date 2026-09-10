@@ -5,9 +5,10 @@ import Link from 'next/link';
 
 interface SuccessProps {
   reference: string;
+  whatsappUrl?: string;
 }
 
-export default function Success({ reference }: SuccessProps) {
+export default function Success({ reference, whatsappUrl }: SuccessProps) {
   useEffect(() => {
     // Clear any stored booking intent
     if (typeof window !== 'undefined') {
@@ -33,13 +34,31 @@ export default function Success({ reference }: SuccessProps) {
         <p className="text-2xl font-bold text-burgundy font-mono mt-1">{reference}</p>
       </div>
 
+      {/* WhatsApp Payment Instructions */}
+      {whatsappUrl && (
+        <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6 max-w-md mx-auto">
+          <h3 className="font-semibold text-green-800 mb-2">Complete Your Deposit</h3>
+          <p className="text-sm text-green-800 mb-3">
+            Tap below to open WhatsApp with your booking details pre-filled. Send the message to
+            arrange your deposit payment.
+          </p>
+          <a
+            href={whatsappUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-block px-6 py-3 bg-green-600 text-white font-medium rounded-lg hover:bg-green-700 transition-colors"
+          >
+            Open WhatsApp
+          </a>
+        </div>
+      )}
+
       {/* Info */}
       <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-6 max-w-md mx-auto text-left">
         <h3 className="font-semibold text-amber-800 mb-2">What happens next?</h3>
         <ul className="text-sm text-amber-800 space-y-2">
-          <li>• We'll review your booking and approve it shortly</li>
-          <li>• You'll receive a confirmation email once approved</li>
-          <li>• A WhatsApp message with payment details will be sent</li>
+          <li>• We&apos;ll review your booking and approve it shortly</li>
+          <li>• You&apos;ll receive a confirmation email once approved</li>
           <li>• Please complete the deposit before your appointment</li>
         </ul>
       </div>
@@ -62,7 +81,7 @@ export default function Success({ reference }: SuccessProps) {
 
       <p className="text-sm text-gray-500 mt-8">
         Need help? Contact us at{' '}
-        <a href={`https://wa.me/${process.env.WHATSAPP_NUMBER?.replace(/[^0-9]/g, '') || ''}`} className="text-burgundy hover:underline">
+        <a href={`https://wa.me/${process.env.NEXT_PUBLIC_WHATSAPP_NUMBER?.replace(/[^0-9]/g, '') || ''}`} className="text-burgundy hover:underline">
           WhatsApp
         </a>
       </p>

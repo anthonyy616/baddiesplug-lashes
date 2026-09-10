@@ -140,6 +140,16 @@ export async function getActiveServices() {
 }
 
 /**
+ * Get service by slug (public lookup)
+ */
+export async function getServiceBySlug(slug: string) {
+  const service = await db.query.services.findFirst({
+    where: eq(services.slug, slug),
+  });
+  return service;
+}
+
+/**
  * Get service with images
  */
 export async function getServiceWithImages(id: string) {

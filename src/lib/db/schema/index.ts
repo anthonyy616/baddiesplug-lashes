@@ -9,7 +9,7 @@ import {
   index,
   uniqueIndex,
 } from 'drizzle-orm/pg-core';
-import { relations } from 'drizzle-orm';
+import { relations, sql } from 'drizzle-orm';
 
 // Users table - extended with our custom fields while compatible with NextAuth
 // NextAuth expects: id, name, email, emailVerified, image, password,uuid
@@ -145,12 +145,16 @@ export const bookings = pgTable('bookings', {
   index('bookings_appointment_date_idx').on(table.appointmentDate),
   index('bookings_status_idx').on(table.status),
   index('bookings_created_at_idx').on(table.createdAt),
-  // Active booking unique constraint to prevent double booking
-  uniqueIndex('active_booking_slot_unique').on(
-    table.appointmentDate,
-    table.startTime,
-    table.endTime,
-  ),
+  // Active booking unique constraint to prevent double booking.
+  // Only pending/confirmed bookings occupy a slot; cancelled/rejected/completed
+  // bookings must not block it. See booking-rules.md.
+  uniqueIndex('active_booking_slot_unique')
+    .on(
+      table.appointmentDate,
+      table.startTime,
+      table.endTime,
+    )
+    .where(sql`status IN ('pending', 'confirmed')`),
 ]);
 
 // Booking services table (historical snapshots)

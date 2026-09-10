@@ -1,9 +1,11 @@
-import { auth } from '@/lib/auth';
 import { getBookingById } from '@/lib/booking';
 import { requireAdmin } from '@/lib/auth/types';
 import { notFound } from 'next/navigation';
 import { formatLagosTime } from '@/lib/timezone';
 import { getServiceWithImages } from '@/lib/pricing';
+import { db } from '@/lib/db';
+import { users } from '@/lib/db/schema';
+import { eq } from 'drizzle-orm';
 import Link from 'next/link';
 import BookingActionsClient from './BookingActionsClient';
 
@@ -13,9 +15,6 @@ interface PageProps {
 }
 
 export default async function AdminBookingDetailPage({ params }: PageProps) {
-  const session = await auth();
-  const user = session?.user as any;
-
   await requireAdmin();
 
   const { id } = await params;
@@ -24,6 +23,11 @@ export default async function AdminBookingDetailPage({ params }: PageProps) {
   if (!booking) {
     notFound();
   }
+
+  // Fetch the actual customer record (previously showed the admin's own session info)
+  const customer = await db.query.users.findFirst({
+    where: eq(users.id, booking.customerId),
+  });
 
   // Get service details
   const serviceDetails = await Promise.all(
@@ -180,11 +184,11 @@ export default async function AdminBookingDetailPage({ params }: PageProps) {
             <div className="space-y-3 text-sm">
               <div>
                 <p className="text-gray-600">Name</p>
-                <p className="font-medium">{user?.name || 'Unknown'}</p>
+                <p className="font-medium">{customer?.name || 'Unknown'}</p>
               </div>
               <div>
                 <p className="text-gray-600">Email</p>
-                <p className="font-medium">{user?.email || ''}</p>
+                <p className="font-medium">{customer?.email || ''}</p>
               </div>
               <div>
                 <p className="text-gray-600">Phone</p>

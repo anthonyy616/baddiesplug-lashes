@@ -1,6 +1,6 @@
 import { db } from '@/lib/db';
 import { availabilityOverrides, bookings } from '@/lib/db/schema';
-import { eq, and, or } from 'drizzle-orm';
+import { eq, and, inArray } from 'drizzle-orm';
 import {
   isBusinessDay,
   getStandardSlots,
@@ -16,80 +16,139 @@ export interface AvailableSlot extends Slot {
   reason?: string;
 }
 
-/**
- * Get all available slots for a given date
- */
-export async function getAvailableSlots(date: string): Promise<AvailableSlot[]> {
-  const dateObj = new Date(date + 'T00:00:00');
+/** Statuses that occupy a slot. Pending intentionally blocks until admin decision. */
+const OCCUPYING_STATUSES = ['pending', 'confirmed'] as const;
 
-  // Check if it's a business day
-  if (!isBusinessDay(dateObj)) {
-    return [];
-  }
-
-  // Get standard slots for the day
-  const standardSlots = getStandardSlots(dateObj);
-
-  // Get blocked slots from availability overrides
-  const blockedSlots = await getBlockedSlots(date);
-
-  // Get booked slots (pending and confirmed)
-  const bookedSlots = await getBookedSlots(date);
-
-  // Filter slots
-  const availableSlots: AvailableSlot[] = [];
-
-  for (const slot of standardSlots) {
-    const key = slotToKey(slot);
-    const isBlocked = blockedSlots.has(key);
-    const isBooked = bookedSlots.has(key);
-
-    if (!isBlocked && !isBooked) {
-      availableSlots.push({
-        ...slot,
-        available: true,
-      });
-    } else {
-      availableSlots.push({
-        ...slot,
-        available: false,
-        reason: isBlocked ? 'blocked' : 'booked',
-      });
-    }
-  }
-
-  return availableSlots;
+function isValidTime(t: string): boolean {
+  return /^([01]\d|2[0-3]):[0-5]\d$/.test(t);
 }
 
 /**
- * Check if a specific slot is available
+ * Get all slots for a given date with availability information.
+ * Includes slots opened by admin overrides even on normally closed days.
+ * Applies the booking window and same-day rules (informational; the server
+ * re-validates authoritatively at booking time).
+ */
+export async function getAvailableSlots(date: string): Promise<AvailableSlot[]> {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    return [];
+  }
+
+  // Get standard slots for the day (empty on closed days)
+  const standardSlots = getStandardSlots(date);
+
+  // Get admin overrides for the date
+  const overrides = await getOverrides(date);
+
+  const standardKeys = new Set(standardSlots.map(slotToKey));
+
+  // Slots explicitly opened by admin (may exist on closed days)
+  const openedSlots: Slot[] = overrides
+    .filter((o) => o.mode === 'available')
+    .map((o) => ({ date, startTime: o.startTime, endTime: o.endTime }))
+    .filter((s) => !standardKeys.has(slotToKey(s)));
+
+  const allSlots = [...standardSlots, ...openedSlots];
+
+  if (allSlots.length === 0) {
+    return [];
+  }
+
+  // Same-day/booking-window checks per slot (true instants)
+  const nowCheck = new Map<string, { ok: boolean; reason?: string }>();
+  for (const slot of allSlots) {
+    try {
+      const { start } = parseSlotToDateTime(slot);
+      if (!isWithinBookingWindow(start)) {
+        nowCheck.set(slotToKey(slot), { ok: false, reason: 'outside_booking_window' });
+      } else if (!validateSameDayBooking(start)) {
+        nowCheck.set(slotToKey(slot), { ok: false, reason: 'too_soon' });
+      } else {
+        nowCheck.set(slotToKey(slot), { ok: true });
+      }
+    } catch {
+      nowCheck.set(slotToKey(slot), { ok: false, reason: 'invalid_slot' });
+    }
+  }
+
+  // Get blocked slots from availability overrides
+  const blockedSlots = getBlockedSlotKeys(date, overrides);
+
+  // Get occupied slots (pending and confirmed bookings)
+  const bookedSlots = await getBookedSlots(date);
+
+  return allSlots.map((slot) => {
+    const key = slotToKey(slot);
+
+    if (bookedSlots.has(key)) {
+      return { ...slot, available: false, reason: 'booked' };
+    }
+    if (blockedSlots.has(key)) {
+      return { ...slot, available: false, reason: 'blocked' };
+    }
+    const timeCheck = nowCheck.get(key);
+    if (timeCheck && !timeCheck.ok) {
+      return { ...slot, available: false, reason: timeCheck.reason };
+    }
+    return { ...slot, available: true };
+  });
+}
+
+/**
+ * Check if a specific slot is available.
+ * The slot must be either a standard template slot or explicitly opened by an
+ * admin override — arbitrary times are never bookable.
  */
 export async function isSlotAvailable(
   date: string,
   startTime: string,
   endTime: string
 ): Promise<{ available: boolean; reason?: string }> {
-  // Check if it's a business day
-  const dateObj = new Date(date + 'T00:00:00');
-  if (!isBusinessDay(dateObj)) {
-    return { available: false, reason: 'closed' };
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !isValidTime(startTime) || !isValidTime(endTime)) {
+    return { available: false, reason: 'invalid_slot' };
   }
 
-  // Check booking window
-  const slotDateTime = parseSlotToDateTime({ date, startTime, endTime });
-  if (!isWithinBookingWindow(slotDateTime.start)) {
+  const slot: Slot = { date, startTime, endTime };
+  let slotTimes;
+  try {
+    slotTimes = parseSlotToDateTime(slot);
+  } catch {
+    return { available: false, reason: 'invalid_slot' };
+  }
+
+  // The slot must exist as a standard slot OR be explicitly opened by an override.
+  const standardSlots = getStandardSlots(date);
+  const standardKeys = new Set(standardSlots.map(slotToKey));
+  const overrides = await getOverrides(date);
+  const openedKeys = new Set(
+    overrides
+      .filter((o) => o.mode === 'available')
+      .map((o) => slotToKey({ date, startTime: o.startTime, endTime: o.endTime }))
+  );
+
+  const slotKey = slotToKey(slot);
+  const isDefinedSlot = standardKeys.has(slotKey) || openedKeys.has(slotKey);
+  if (!isDefinedSlot) {
+    return { available: false, reason: 'slot_not_offered' };
+  }
+
+  // Booking window
+  if (!isWithinBookingWindow(slotTimes.start)) {
     return { available: false, reason: 'outside_booking_window' };
   }
 
-  // Check same-day rule
-  if (!validateSameDayBooking(slotDateTime.start)) {
+  // Same-day rule (start at least 1 hour from now)
+  if (!validateSameDayBooking(slotTimes.start)) {
     return { available: false, reason: 'too_soon' };
   }
 
-  // Check if slot is blocked
-  const blockedSlots = await getBlockedSlots(date);
-  const slotKey = slotToKey({ date, startTime, endTime });
+  // Closed days are only bookable when an override explicitly opens the slot
+  if (!isBusinessDay(date) && !openedKeys.has(slotKey)) {
+    return { available: false, reason: 'closed' };
+  }
 
+  // Check if slot is blocked
+  const blockedSlots = getBlockedSlotKeys(date, overrides);
   if (blockedSlots.has(slotKey)) {
     return { available: false, reason: 'blocked' };
   }
@@ -103,60 +162,59 @@ export async function isSlotAvailable(
   return { available: true };
 }
 
-/**
- * Get blocked slots from availability overrides
- */
-async function getBlockedSlots(date: string): Promise<Set<string>> {
+interface OverrideRow {
+  startTime: string;
+  endTime: string;
+  mode: string;
+}
+
+function getOverrides(date: string): Promise<OverrideRow[]> {
+  return db
+    .select({ startTime: availabilityOverrides.startTime, endTime: availabilityOverrides.endTime, mode: availabilityOverrides.mode })
+    .from(availabilityOverrides)
+    .where(eq(availabilityOverrides.date, date));
+}
+
+function getBlockedSlotKeys(date: string, overrides: OverrideRow[]): Set<string> {
   const blocked = new Set<string>();
-
-  // Get all overrides for the date
-  const overrides = await db.query.availabilityOverrides.findMany({
-    where: eq(availabilityOverrides.date, date),
-  });
-
   for (const override of overrides) {
     if (override.mode === 'blocked') {
-      blocked.add(slotToKey({
-        date: override.date,
-        startTime: override.startTime,
-        endTime: override.endTime,
-      }));
+      blocked.add(
+        slotToKey({ date, startTime: override.startTime, endTime: override.endTime })
+      );
     }
   }
-
   return blocked;
 }
 
 /**
- * Get booked slots (pending and confirmed)
+ * Get occupied slots for a date (pending and confirmed bookings).
  */
-async function getBookedSlots(date: string): Promise<Set<string>> {
+export async function getBookedSlots(date: string): Promise<Set<string>> {
   const booked = new Set<string>();
 
-  // Get all active bookings for the date
   const activeBookings = await db.query.bookings.findMany({
     where: and(
       eq(bookings.appointmentDate, date),
-      or(
-        eq(bookings.status, 'pending'),
-        eq(bookings.status, 'confirmed')
-      )
+      inArray(bookings.status, [...OCCUPYING_STATUSES])
     ),
   });
 
   for (const booking of activeBookings) {
-    booked.add(slotToKey({
-      date: booking.appointmentDate,
-      startTime: booking.startTime,
-      endTime: booking.endTime,
-    }));
+    booked.add(
+      slotToKey({
+        date: booking.appointmentDate,
+        startTime: booking.startTime,
+        endTime: booking.endTime,
+      })
+    );
   }
 
   return booked;
 }
 
 /**
- * Validate booking parameters
+ * Validate booking parameters (authoritative server-side check).
  */
 export async function validateBookingSlot(
   date: string,

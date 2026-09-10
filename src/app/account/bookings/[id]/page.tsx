@@ -2,7 +2,7 @@ import { auth } from '@/lib/auth';
 import { getBookingById } from '@/lib/booking';
 import { requireAuth } from '@/lib/auth/types';
 import { redirect } from 'next/navigation';
-import { formatLagosTime, parseSlotToDateTime } from '@/lib/timezone';
+import { formatLagosTime, getCancellationDeadline } from '@/lib/timezone';
 import Link from 'next/link';
 import CancelBookingButton from './CancelBookingButton';
 
@@ -28,12 +28,13 @@ export default async function BookingDetailPage({ params }: PageProps) {
     redirect('/account');
   }
 
-  const canCancel = booking.status === 'pending' || 
-    (booking.status === 'confirmed' && Date.now() < parseSlotToDateTime({
+  // Customers may cancel before the 1-hour cutoff (server re-validates on the action)
+  const canCancel =
+    (booking.status === 'pending' || booking.status === 'confirmed') &&
+    new Date() < getCancellationDeadline({
       date: booking.appointmentDate,
       startTime: booking.startTime,
-      endTime: booking.endTime,
-    }).end.getTime() - 60 * 60 * 1000);
+    });
 
   const serviceDetails = await Promise.all(
     (booking.services || []).map(async (service: any) => {

@@ -1,19 +1,16 @@
 import { db } from '@/lib/db';
-import { bookings, bookingServices, bookingAddons, notifications, referenceImages, payments } from '@/lib/db/schema';
-import { eq, and, sql, inArray } from 'drizzle-orm';
+import { bookings, bookingServices, bookingAddons, notifications, emailEvents, payments, referenceImages } from '@/lib/db/schema';
+import { eq } from 'drizzle-orm';
 import { v4 as uuidv4 } from 'uuid';
-import { requireAuth, requireAdmin } from '@/lib/auth/types';
-import {
-  getAvailableSlots,
-  validateBookingSlot,
-} from '@/lib/availability';
+import { requireAuth } from '@/lib/auth/types';
+import { isSlotAvailable } from '@/lib/availability';
 import {
   calculateBookingTotal,
-  createServiceSnapshots,
-  createAddonSnapshots,
   generateBookingReference,
 } from '@/lib/pricing';
-import { isWithinBookingWindow, validateSameDayBooking, parseSlotToDateTime } from '@/lib/timezone';
+import { parseSlotToDateTime, getCancellationDeadline } from '@/lib/timezone';
+import { queueEmailEvent, dispatchEmailEvent } from '@/lib/email/events';
+import { generateBookingPaymentLink, generateCancellationLink } from '@/lib/whatsapp';
 
 export interface CreateBookingResult {
   success: boolean;
@@ -23,8 +20,24 @@ export interface CreateBookingResult {
   error?: string;
 }
 
+// Error thrown on unique-index conflicts so we can map to a friendly message.
+function isUniqueViolation(error: unknown): boolean {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'code' in error &&
+    (error as { code?: string }).code === '23505'
+  );
+}
+
 /**
- * Create a new booking
+ * Create a new booking.
+ *
+ * Everything that must be atomic happens inside a single transaction:
+ * availability re-validation, pricing recalculation, booking insert,
+ * snapshots, notification, and email event. The database's partial unique
+ * index on (date, start, end) for pending/confirmed bookings is the final
+ * race-condition guard; a conflict maps to a user-friendly error.
  */
 export async function createBooking(
   serviceIds: string[],
@@ -39,60 +52,141 @@ export async function createBooking(
     // Authenticate user
     const user = await requireAuth();
 
-    // Validate slot availability
-    const slotValidation = await validateBookingSlot(date, startTime, endTime);
-    if (!slotValidation.valid) {
+    if (!Array.isArray(serviceIds) || serviceIds.length === 0) {
+      return { success: false, error: 'At least one service is required' };
+    }
+
+    // Authoritative server-side availability validation
+    const slotValidation = await isSlotAvailable(date, startTime, endTime);
+    if (!slotValidation.available) {
       return {
         success: false,
-        error: slotValidation.error || 'Slot not available',
+        error: slotValidation.reason || 'Slot not available',
       };
     }
 
-    // Calculate pricing
+    // Recalculate pricing from the database — never trust the frontend
     const priceSnapshot = await calculateBookingTotal(serviceIds, addonIds);
 
-    // Generate booking reference
+    // Verify every requested service/addon actually exists (avoids silent pricing drift)
+    const resolvedServiceCount = priceSnapshot.services.length;
+    if (resolvedServiceCount !== new Set(serviceIds).size) {
+      return { success: false, error: 'One or more selected services are unavailable' };
+    }
+    if (priceSnapshot.addons.length !== new Set(addonIds).size) {
+      return { success: false, error: 'One or more selected add-ons are unavailable' };
+    }
+
     const reference = generateBookingReference();
-
-    // Create the booking in a transaction
     const bookingId = uuidv4();
+    const now = new Date();
 
-    await db.insert(bookings).values({
-      id: bookingId,
+    await db.transaction(async (tx) => {
+      // Re-validate inside the transaction for the strongest consistency
+      // available at this isolation level; the partial unique index below is
+      // the final guard against concurrent bookings.
+      const stillAvailable = await isSlotAvailable(date, startTime, endTime);
+      if (!stillAvailable.available) {
+        throw new SlotConflictError(stillAvailable.reason || 'Slot not available');
+      }
+
+      // Insert booking — conflicts surface as unique violations
+      await tx.insert(bookings).values({
+        id: bookingId,
+        reference,
+        customerId: user.id,
+        appointmentDate: date,
+        startTime,
+        endTime,
+        status: 'pending',
+        phone,
+        customerNotes: notes || '',
+        subtotal: priceSnapshot.subtotal,
+        depositRequired: priceSnapshot.depositRequired,
+        total: priceSnapshot.total,
+        createdAt: now,
+        updatedAt: now,
+      });
+
+      // Service snapshots (historical prices)
+      if (priceSnapshot.services.length > 0) {
+        await tx.insert(bookingServices).values(
+          priceSnapshot.services.map((s) => ({
+            id: uuidv4(),
+            bookingId,
+            serviceId: s.id,
+            serviceNameSnapshot: s.name,
+            unitPriceSnapshot: s.price,
+          }))
+        );
+      }
+
+      // Addon snapshots (historical prices)
+      if (priceSnapshot.addons.length > 0) {
+        await tx.insert(bookingAddons).values(
+          priceSnapshot.addons.map((a) => ({
+            id: uuidv4(),
+            bookingId,
+            addonId: a.id,
+            addonNameSnapshot: a.name,
+            unitPriceSnapshot: a.price,
+            quantity: a.quantity,
+          }))
+        );
+      }
+
+      // Admin notification
+      await tx.insert(notifications).values({
+        id: uuidv4(),
+        type: 'new_booking',
+        bookingId,
+        title: 'New Booking Request',
+        message: `Booking reference ${reference} requires attention`,
+        isRead: false,
+        createdAt: now,
+      });
+
+      // Durable email event — booking transaction is independent of delivery
+      await queueEmailEvent({
+        eventType: 'booking.requested',
+        recipient: user.email,
+        bookingId,
+        payload: {
+          customerName: user.name,
+          reference,
+          date,
+          startTime,
+          endTime,
+          services: priceSnapshot.services.map((s) => s.name),
+          addons: priceSnapshot.addons.map((a) => a.name),
+          total: priceSnapshot.total,
+          depositRequired: priceSnapshot.depositRequired,
+          phone,
+          notes,
+        },
+      });
+    });
+
+    // WhatsApp deep link for payment instructions (not an API dependency)
+    const whatsappUrl = generateBookingPaymentLink(
       reference,
-      customerId: user.id,
-      appointmentDate: date,
+      user.name,
+      date,
       startTime,
       endTime,
-      status: 'pending',
-      phone,
-      customerNotes: notes || '',
-      subtotal: priceSnapshot.subtotal,
-      depositRequired: priceSnapshot.depositRequired,
-      total: priceSnapshot.total,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    });
+      priceSnapshot.total,
+      priceSnapshot.depositRequired,
+      notes
+    );
 
-    // Create service snapshots
-    await createServiceSnapshots(bookingId, serviceIds);
-
-    // Create addon snapshots
-    await createAddonSnapshots(bookingId, addonIds);
-
-    // Create notification for admin
-    await db.insert(notifications).values({
-      id: uuidv4(),
-      type: 'new_booking',
-      bookingId,
-      title: 'New Booking Request',
-      message: `Booking reference ${reference} requires attention`,
-      isRead: false,
-      createdAt: new Date(),
-    });
-
-    // Generate WhatsApp URL
-    const whatsappUrl = generateWhatsAppUrl(reference, user.name, date, startTime, endTime, priceSnapshot.total, priceSnapshot.depositRequired, notes);
+    // Best-effort async dispatch of queued emails
+    const queued = await db
+      .select({ id: emailEvents.id })
+      .from(emailEvents)
+      .where(eq(emailEvents.bookingId, bookingId));
+    for (const event of queued) {
+      dispatchEmailEvent(event.id);
+    }
 
     return {
       success: true,
@@ -101,6 +195,12 @@ export async function createBooking(
       whatsappUrl,
     };
   } catch (error) {
+    if (error instanceof SlotConflictError) {
+      return { success: false, error: 'slot_no_longer_available' };
+    }
+    if (isUniqueViolation(error)) {
+      return { success: false, error: 'slot_no_longer_available' };
+    }
     console.error('Error creating booking:', error);
     return {
       success: false,
@@ -109,14 +209,20 @@ export async function createBooking(
   }
 }
 
+class SlotConflictError extends Error {
+  constructor(reason: string) {
+    super(reason);
+    this.name = 'SlotConflictError';
+  }
+}
+
 /**
- * Cancel a booking
+ * Cancel a booking (customer-side; admins use the admin service).
  */
-export async function cancelBooking(bookingId: string): Promise<{ success: boolean; error?: string }> {
+export async function cancelBooking(bookingId: string): Promise<{ success: boolean; error?: string; whatsappUrl?: string }> {
   try {
     const user = await requireAuth();
 
-    // Get the booking
     const booking = await db.query.bookings.findFirst({
       where: eq(bookings.id, bookingId),
     });
@@ -125,54 +231,80 @@ export async function cancelBooking(bookingId: string): Promise<{ success: boole
       return { success: false, error: 'Booking not found' };
     }
 
-    // Check ownership (only customer can cancel their own booking)
+    // Only the owner may cancel their own booking
     if (booking.customerId !== user.id) {
       return { success: false, error: 'Unauthorized' };
     }
 
-    // Check status (only pending or confirmed can be cancelled)
     if (booking.status !== 'pending' && booking.status !== 'confirmed') {
       return { success: false, error: 'Booking cannot be cancelled' };
     }
 
-    // Check cancellation cutoff (1 hour before appointment for customers)
-    if (user.role === 'customer') {
-      const appointmentEnd = parseSlotToDateTime({
-        date: booking.appointmentDate,
-        startTime: booking.startTime,
-        endTime: booking.endTime,
-      }).end;
-
-      const now = new Date();
-      const oneHourBefore = new Date(appointmentEnd.getTime() - 60 * 60 * 1000);
-
-      if (now > oneHourBefore) {
-        return { success: false, error: 'Cancellation cutoff passed' };
-      }
+    // 1-hour cutoff (customers)
+    const deadline = getCancellationDeadline({
+      date: booking.appointmentDate,
+      startTime: booking.startTime,
+    });
+    if (new Date() >= deadline) {
+      return { success: false, error: 'Cancellation cutoff passed' };
     }
 
-    // Update booking status to cancelled
-    await db.update(bookings)
-      .set({
-        status: 'cancelled',
-        cancelledAt: new Date(),
-        updatedAt: new Date(),
-      })
-      .where(eq(bookings.id, bookingId));
+    const now = new Date();
 
-    // Create notification
-    await db.insert(notifications).values({
-      id: uuidv4(),
-      type: 'booking_cancelled',
-      bookingId,
-      customerId: booking.customerId,
-      title: 'Booking Cancelled',
-      message: `Booking ${booking.reference} has been cancelled`,
-      isRead: false,
-      createdAt: new Date(),
+    await db.transaction(async (tx) => {
+      await tx
+        .update(bookings)
+        .set({
+          status: 'cancelled',
+          cancelledAt: now,
+          updatedAt: now,
+        })
+        .where(eq(bookings.id, bookingId));
+
+      await tx.insert(notifications).values({
+        id: uuidv4(),
+        type: 'booking_cancelled',
+        bookingId,
+        customerId: booking.customerId,
+        title: 'Booking Cancelled',
+        message: `Booking ${booking.reference} has been cancelled`,
+        isRead: false,
+        createdAt: now,
+      });
+
+      await queueEmailEvent({
+        eventType: 'booking.customer_cancelled',
+        recipient: user.email,
+        bookingId,
+        payload: {
+          customerName: user.name,
+          reference: booking.reference,
+          date: booking.appointmentDate,
+          startTime: booking.startTime,
+          endTime: booking.endTime,
+        },
+      });
     });
 
-    return { success: true };
+    // Async dispatch of queued emails
+    const queued = await db
+      .select({ id: emailEvents.id })
+      .from(emailEvents)
+      .where(eq(emailEvents.bookingId, bookingId));
+    for (const event of queued) {
+      dispatchEmailEvent(event.id);
+    }
+
+    // WhatsApp link for refund questions
+    const whatsappUrl = generateCancellationLink(
+      booking.reference,
+      user.name,
+      booking.appointmentDate,
+      booking.startTime,
+      booking.endTime
+    );
+
+    return { success: true, whatsappUrl };
   } catch (error) {
     console.error('Error cancelling booking:', error);
     return { success: false, error: 'Failed to cancel booking' };
@@ -180,7 +312,7 @@ export async function cancelBooking(bookingId: string): Promise<{ success: boole
 }
 
 /**
- * Get booking by ID
+ * Get booking by ID with all related data.
  */
 export async function getBookingById(bookingId: string) {
   const booking = await db.query.bookings.findFirst({
@@ -189,25 +321,21 @@ export async function getBookingById(bookingId: string) {
 
   if (!booking) return null;
 
-  // Get service snapshots
-  const bookingServicesResults = await db.query.bookingServices.findMany({
-    where: eq(bookingServices.bookingId, bookingId),
-  });
-
-  // Get addon snapshots
-  const bookingAddonsResults = await db.query.bookingAddons.findMany({
-    where: eq(bookingAddons.bookingId, bookingId),
-  });
-
-  // Get payments
-  const paymentsResults = await db.query.payments.findMany({
-    where: eq(payments.bookingId, bookingId),
-  });
-
-  // Get reference images
-  const referenceImagesResults = await db.query.referenceImages.findMany({
-    where: eq(referenceImages.bookingId, bookingId),
-  });
+  const [bookingServicesResults, bookingAddonsResults, paymentsResults, referenceImagesResults] =
+    await Promise.all([
+      db.query.bookingServices.findMany({
+        where: eq(bookingServices.bookingId, bookingId),
+      }),
+      db.query.bookingAddons.findMany({
+        where: eq(bookingAddons.bookingId, bookingId),
+      }),
+      db.query.payments.findMany({
+        where: eq(payments.bookingId, bookingId),
+      }),
+      db.query.referenceImages.findMany({
+        where: eq(referenceImages.bookingId, bookingId),
+      }),
+    ]);
 
   return {
     ...booking,
@@ -219,29 +347,41 @@ export async function getBookingById(bookingId: string) {
 }
 
 /**
- * Get customer's bookings
+ * Get customer's upcoming bookings only.
+ * Requirements: customers must NOT see appointment history.
  */
 export async function getCustomerBookings(customerId: string) {
-  return db.query.bookings.findMany({
+  const all = await db.query.bookings.findMany({
     where: eq(bookings.customerId, customerId),
-    orderBy: (b) => [b.createdAt],
+    orderBy: (b) => [b.appointmentDate],
   });
+
+  const today = new Date().toISOString().slice(0, 10);
+
+  // Upcoming = pending/confirmed for today or the future.
+  // Cancelled bookings remain visible so customers have cancellation/refund
+  // information. Completed, no-show, and rejected history is hidden from
+  // customers per requirements (admin has full history).
+  return all.filter(
+    (b) =>
+      (b.appointmentDate >= today &&
+        (b.status === 'pending' || b.status === 'confirmed')) ||
+      b.status === 'cancelled'
+  );
 }
 
 /**
- * Get booking for admin or customer (with authorization)
+ * Get booking for admin or customer (with authorization).
  */
 export async function getBookingForUser(bookingId: string, userId: string, role: string) {
   const booking = await getBookingById(bookingId);
 
   if (!booking) return null;
 
-  // Admin can see all bookings
   if (role === 'admin') {
     return booking;
   }
 
-  // Customer can only see their own bookings
   if (booking.customerId === userId) {
     return booking;
   }
@@ -250,53 +390,18 @@ export async function getBookingForUser(bookingId: string, userId: string, role:
 }
 
 /**
- * Generate WhatsApp URL with booking details
- */
-function generateWhatsAppUrl(
-  reference: string,
-  customerName: string,
-  date: string,
-  startTime: string,
-  endTime: string,
-  total: number,
-  depositRequired: number,
-  notes?: string
-): string {
-  const phoneNumber = process.env.WHATSAPP_NUMBER?.replace(/[^0-9]/g, '') || '';
-  const totalInNaira = (total / 100).toFixed(2);
-  const depositInNaira = (depositRequired / 100).toFixed(2);
-
-  const message = [
-    `📋 *New Booking Request*`,
-    `\u200B`,
-    `*Reference:* ${reference}`,
-    `*Customer:* ${customerName}`,
-    `*Date:* ${date}`,
-    `*Time:* ${startTime} - ${endTime}`,
-    `\u200B`,
-    `*Total:* ₦${totalInNaira}`,
-    `*Deposit Required:* ₦${depositInNaira}`,
-    `\u200B`,
-    notes ? `📝 *Notes:* ${notes}` : '',
-  ].filter(Boolean).join('\n');
-
-  const encodedMessage = encodeURIComponent(message);
-  return `https://wa.me/${phoneNumber}?text=${encodedMessage}`;
-}
-
-/**
- * Reschedule a booking
+ * Reschedule a booking: cancel original + create a new booking that
+ * references it. The new booking must pass all normal availability rules.
  */
 export async function rescheduleBooking(
   bookingId: string,
   newDate: string,
   newStartTime: string,
   newEndTime: string
-): Promise<{ success: boolean; error?: string; newBookingId?: string }> {
+): Promise<{ success: boolean; error?: string; newBookingId?: string; whatsappUrl?: string }> {
   try {
     const user = await requireAuth();
 
-    // Get the original booking
     const originalBooking = await db.query.bookings.findFirst({
       where: eq(bookings.id, bookingId),
     });
@@ -305,62 +410,118 @@ export async function rescheduleBooking(
       return { success: false, error: 'Booking not found' };
     }
 
-    // Check ownership
     if (originalBooking.customerId !== user.id) {
       return { success: false, error: 'Unauthorized' };
     }
 
-    // Check if original booking can be cancelled
     if (originalBooking.status !== 'pending' && originalBooking.status !== 'confirmed') {
       return { success: false, error: 'Booking cannot be rescheduled' };
     }
 
-    // Validate new slot
-    const slotValidation = await validateBookingSlot(newDate, newStartTime, newEndTime);
-    if (!slotValidation.valid) {
-      return { success: false, error: slotValidation.error };
+    // Validate new slot (arbitrary times are rejected by the availability engine)
+    const slotValidation = await isSlotAvailable(newDate, newStartTime, newEndTime);
+    if (!slotValidation.available) {
+      return { success: false, error: slotValidation.reason || 'Slot not available' };
     }
 
-    // Get original booking details for the new booking
-    const priceSnapshot = await calculateBookingTotal([], []); // Will be recalculated
-
-    // Create new booking
+    // Preserve original price snapshot — rescheduling must not reprice
     const newBookingId = uuidv4();
     const newReference = generateBookingReference();
+    const now = new Date();
 
-    await db.insert(bookings).values({
-      id: newBookingId,
-      reference: newReference,
-      customerId: originalBooking.customerId,
-      appointmentDate: newDate,
-      startTime: newStartTime,
-      endTime: newEndTime,
-      status: 'pending',
-      phone: originalBooking.phone,
-      customerNotes: originalBooking.customerNotes,
-      subtotal: originalBooking.subtotal,
-      depositRequired: originalBooking.depositRequired,
-      total: originalBooking.total,
-      previousBookingId: bookingId,
-      createdAt: new Date(),
-      updatedAt: new Date(),
+    await db.transaction(async (tx) => {
+      // Cancel original
+      await tx
+        .update(bookings)
+        .set({
+          status: 'cancelled',
+          cancelledAt: now,
+          updatedAt: now,
+        })
+        .where(eq(bookings.id, bookingId));
+
+      // Create new booking with the original's price snapshot
+      await tx.insert(bookings).values({
+        id: newBookingId,
+        reference: newReference,
+        customerId: originalBooking.customerId,
+        appointmentDate: newDate,
+        startTime: newStartTime,
+        endTime: newEndTime,
+        status: 'pending',
+        phone: originalBooking.phone,
+        customerNotes: originalBooking.customerNotes,
+        subtotal: originalBooking.subtotal,
+        depositRequired: originalBooking.depositRequired,
+        total: originalBooking.total,
+        previousBookingId: bookingId,
+        createdAt: now,
+        updatedAt: now,
+      });
+
+      // Copy service snapshots
+      const originalServices = await tx.query.bookingServices.findMany({
+        where: eq(bookingServices.bookingId, bookingId),
+      });
+      if (originalServices.length > 0) {
+        await tx.insert(bookingServices).values(
+          originalServices.map((s) => ({
+            id: uuidv4(),
+            bookingId: newBookingId,
+            serviceId: s.serviceId,
+            serviceNameSnapshot: s.serviceNameSnapshot,
+            unitPriceSnapshot: s.unitPriceSnapshot,
+          }))
+        );
+      }
+
+      // Copy addon snapshots
+      const originalAddons = await tx.query.bookingAddons.findMany({
+        where: eq(bookingAddons.bookingId, bookingId),
+      });
+      if (originalAddons.length > 0) {
+        await tx.insert(bookingAddons).values(
+          originalAddons.map((a) => ({
+            id: uuidv4(),
+            bookingId: newBookingId,
+            addonId: a.addonId,
+            addonNameSnapshot: a.addonNameSnapshot,
+            unitPriceSnapshot: a.unitPriceSnapshot,
+            quantity: a.quantity,
+          }))
+        );
+      }
+
+      await tx.insert(notifications).values({
+        id: uuidv4(),
+        type: 'new_booking',
+        bookingId: newBookingId,
+        title: 'Booking Rescheduled',
+        message: `Booking ${originalBooking.reference} rescheduled to ${newDate} ${newStartTime} (ref ${newReference})`,
+        isRead: false,
+        createdAt: now,
+      });
     });
 
-    // Cancel original booking
-    await db.update(bookings)
-      .set({
-        status: 'cancelled',
-        cancelledAt: new Date(),
-        updatedAt: new Date(),
-      })
-      .where(eq(bookings.id, bookingId));
+    const whatsappUrl = generateBookingPaymentLink(
+      newReference,
+      user.name,
+      newDate,
+      newStartTime,
+      newEndTime,
+      originalBooking.total,
+      originalBooking.depositRequired
+    );
 
-    return {
-      success: true,
-      newBookingId,
-    };
+    return { success: true, newBookingId, whatsappUrl };
   } catch (error) {
+    if (isUniqueViolation(error)) {
+      return { success: false, error: 'slot_no_longer_available' };
+    }
     console.error('Error rescheduling booking:', error);
     return { success: false, error: 'Failed to reschedule booking' };
   }
 }
+
+// Re-export for API layer convenience
+export { parseSlotToDateTime };

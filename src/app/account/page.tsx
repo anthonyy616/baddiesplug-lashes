@@ -3,8 +3,9 @@ import { requireAuth } from '@/lib/auth/types';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { getCustomerBookings } from '@/lib/booking';
-import { formatLagosTime, getCurrentLagosDate, parseSlotToDateTime } from '@/lib/timezone';
-import { desc } from 'drizzle-orm';
+import { formatLagosTime } from '@/lib/timezone';
+
+export const dynamic = 'force-dynamic';
 
 export default async function AccountPage() {
   const session = await auth();
@@ -16,12 +17,22 @@ export default async function AccountPage() {
 
   await requireAuth();
 
+  // Returns only upcoming/current bookings — customers never see appointment history
   const bookings = await getCustomerBookings(user.id);
 
-  // Sort bookings by created date descending
-  const sortedBookings = [...bookings].sort((a, b) =>
-    new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-  );
+  const statusBadge: Record<string, string> = {
+    pending: 'bg-amber-100 text-amber-800',
+    confirmed: 'bg-green-100 text-green-800',
+    cancelled: 'bg-red-100 text-red-800',
+    rejected: 'bg-gray-100 text-gray-800',
+  };
+
+  const statusLabel: Record<string, string> = {
+    pending: 'Pending approval',
+    confirmed: 'Confirmed',
+    cancelled: 'Cancelled — contact us on WhatsApp about refunds',
+    rejected: 'Not approved',
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -34,21 +45,21 @@ export default async function AccountPage() {
               <p className="text-gray-600">Welcome back, {user?.name}</p>
             </div>
             <Link
-              href="/auth/signin"
+              href="/services"
               className="text-burgundy hover:text-burgundy/80"
             >
-              Sign out
+              Browse services
             </Link>
           </div>
         </div>
 
-        {/* My Bookings */}
+        {/* Current Bookings */}
         <div className="bg-white rounded-lg shadow p-6">
           <h2 className="text-xl font-semibold text-gray-900 mb-4">My Bookings</h2>
 
           {bookings.length === 0 ? (
             <div className="text-center py-8 text-gray-500">
-              <p>You haven't made any bookings yet.</p>
+              <p>You have no upcoming bookings.</p>
               <Link
                 href="/booking"
                 className="inline-block mt-4 px-4 py-2 bg-burgundy text-white rounded-lg hover:bg-burgundy/90"
@@ -58,7 +69,7 @@ export default async function AccountPage() {
             </div>
           ) : (
             <div className="space-y-4">
-              {sortedBookings.map((booking: any) => (
+              {bookings.map((booking: any) => (
                 <Link
                   key={booking.id}
                   href={`/account/bookings/${booking.id}`}
@@ -67,14 +78,9 @@ export default async function AccountPage() {
                   <div className="flex items-center justify-between">
                     <div>
                       <div className="flex items-center gap-3">
-                        <span className={`px-2 py-1 text-xs rounded-full ${
-                          booking.status === 'pending' ? 'bg-amber-100 text-amber-800' :
-                          booking.status === 'confirmed' ? 'bg-green-100 text-green-800' :
-                          booking.status === 'completed' ? 'bg-blue-100 text-blue-800' :
-                          booking.status === 'cancelled' ? 'bg-red-100 text-red-800' :
-                          booking.status === 'rejected' ? 'bg-gray-100 text-gray-800' :
-                          'bg-gray-100 text-gray-800'
-                        }`}>
+                        <span
+                          className={`px-2 py-1 text-xs rounded-full ${statusBadge[booking.status] || 'bg-gray-100 text-gray-800'}`}
+                        >
                           {booking.status.replace('_', ' ')}
                         </span>
                         <span className="font-mono text-sm text-gray-600">
@@ -88,11 +94,7 @@ export default async function AccountPage() {
                     <div className="text-right">
                       <p className="font-medium">₦{(booking.total / 100).toFixed(2)}</p>
                       <p className="text-sm text-gray-500">
-                        {booking.status === 'pending' ? 'Pending approval' :
-                         booking.status === 'confirmed' ? 'Confirmed' :
-                         booking.status === 'completed' ? 'Completed' :
-                         booking.status === 'cancelled' ? 'Cancelled' :
-                         booking.status === 'rejected' ? 'Rejected' : ''}
+                        {statusLabel[booking.status] || ''}
                       </p>
                     </div>
                   </div>

@@ -2,6 +2,9 @@ import { requireAdmin } from '@/lib/auth/types';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { auth } from '@/lib/auth';
+import { db } from '@/lib/db';
+import { notifications } from '@/lib/db/schema';
+import { eq, sql } from 'drizzle-orm';
 
 export default async function AdminLayout({
   children,
@@ -168,5 +171,13 @@ export default async function AdminLayout({
 }
 
 async function getUnreadNotificationCount(_userId: string): Promise<number> {
-  return 0; // Simplified - implement properly later
+  try {
+    const result = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(notifications)
+      .where(eq(notifications.isRead, false));
+    return result[0]?.count || 0;
+  } catch {
+    return 0;
+  }
 }

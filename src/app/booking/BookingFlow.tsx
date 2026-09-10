@@ -36,6 +36,7 @@ export default function BookingFlow() {
   const [availableSlots, setAvailableSlots] = useState<{ date: string; startTime: string; endTime: string; available: boolean }[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [loadingMessage, setLoadingMessage] = useState('');
+  const [bookingResult, setBookingResult] = useState<{ reference: string; whatsappUrl?: string } | null>(null);
   
   // Get auth status
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -153,10 +154,14 @@ export default function BookingFlow() {
 
       const data = await res.json();
 
-      if (data.success) {
+      if (data.success && data.reference) {
+        setBookingResult({ reference: data.reference, whatsappUrl: data.whatsappUrl });
         setStep('success');
       } else {
-        alert(data.error || 'Failed to create booking');
+        const friendly = data.error === 'slot_no_longer_available'
+          ? 'Sorry, that slot was just booked by someone else. Please pick another time.'
+          : data.error;
+        alert(friendly || 'Failed to create booking');
       }
     } catch (error) {
       alert('Failed to create booking');
@@ -263,7 +268,12 @@ export default function BookingFlow() {
         />
       )}
 
-      {step === 'success' && <Success reference="loading..." />}
+      {step === 'success' && (
+        <Success
+          reference={bookingResult?.reference || ''}
+          whatsappUrl={bookingResult?.whatsappUrl}
+        />
+      )}
     </div>
   );
 }
