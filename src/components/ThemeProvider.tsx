@@ -32,14 +32,25 @@ function getInitialTheme(): Theme {
 }
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  // Initialized lazily from the same source the inline script used, so the
-  // first React render already agrees with the DOM (no hydration mismatch).
-  const [theme, setTheme] = useState<Theme>(getInitialTheme);
+  // Two-pass render: SSR always renders light mode, then after hydration we
+  // adopt the theme the inline pre-paint script in layout.tsx already applied
+  // to <html>. Reading localStorage during the first client render caused a
+  // hydration mismatch whenever the stored theme was dark.
+  const [theme, setTheme] = useState<Theme>('light');
+  const [initialized, setInitialized] = useState(false);
 
   useEffect(() => {
+    setTheme(getInitialTheme());
+    setInitialized(true);
+  }, []);
+
+  useEffect(() => {
+    // Skip the initial (pre-sync) render so we don't clobber the class the
+    // inline script set or downgrade a stored 'dark' theme to 'light'.
+    if (!initialized) return;
     document.documentElement.classList.toggle('dark', theme === 'dark');
     localStorage.setItem('theme', theme);
-  }, [theme]);
+  }, [theme, initialized]);
 
   const toggle = useCallback(() => {
     setTheme((t) => (t === 'dark' ? 'light' : 'dark'));
