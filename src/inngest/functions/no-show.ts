@@ -10,7 +10,10 @@ import { parseSlotToDateTime } from '@/lib/timezone';
  * Replaces the polling-based markNoShows() cron job.
  */
 
-export const markNoShowsFn = inngest.fn('mark-no-shows', async (args: any) => {
+export const markNoShowsFn = inngest.createFunction({
+  id: 'mark-no-shows',
+  name: 'Mark No Shows',
+}, async (args: any) => {
   const step = args.step;
 
   // Get confirmed bookings from the last 7 days

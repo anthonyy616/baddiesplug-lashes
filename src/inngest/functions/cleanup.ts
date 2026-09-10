@@ -10,7 +10,10 @@ import { eq, lte } from 'drizzle-orm';
  * in one doesn't silently lose the retry opportunity for the other.
  */
 
-export const cleanupExpiredImagesFn = inngest.fn('cleanup-expired-images', async (args: any) => {
+export const cleanupExpiredImagesFn = inngest.createFunction({
+  id: 'cleanup-expired-images',
+  name: 'Cleanup Expired Images',
+}, async (args: any) => {
   const step = args.step;
 
   const expired = await step.run('fetch-expired-images', async () => {

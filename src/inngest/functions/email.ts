@@ -15,7 +15,10 @@ import { emailEvents } from '@/lib/db/schema';
  * The API is correct at runtime.
  */
 
-export const sendEmailFn = inngest.fn('send-email', async (args: any) => {
+export const sendEmailFn = inngest.createFunction({
+  id: 'send-email',
+  name: 'Send Email',
+}, async (args: any) => {
   const event = args.event;
   const step = args.step;
 
@@ -27,7 +30,10 @@ export const sendEmailFn = inngest.fn('send-email', async (args: any) => {
   });
 });
 
-export const processDueEmailsFn = inngest.fn('process-due-emails', async (args: any) => {
+export const processDueEmailsFn = inngest.createFunction({
+  id: 'process-due-emails',
+  name: 'Process Due Emails',
+}, async (args: any) => {
   const step = args.step;
 
   const due = await db
@@ -54,7 +60,10 @@ export const processDueEmailsFn = inngest.fn('process-due-emails', async (args: 
   return { processed, totalDue: due.length };
 });
 
-export const sweepDeadLetterEmailFn = inngest.fn('sweep-dead-letter-emails', async (args: any) => {
+export const sweepDeadLetterEmailFn = inngest.createFunction({
+  id: 'sweep-dead-letter-emails',
+  name: 'Sweep Dead Letter Emails',
+}, async (args: any) => {
   const step = args.step;
 
   const deadLetter = await db

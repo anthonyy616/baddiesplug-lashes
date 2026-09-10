@@ -13,6 +13,4 @@ export const inngest = new Inngest({
   signingKey: process.env.INNGEST_SIGNING_KEY ?? undefined,
 });
 
-// Type declarations for Inngest functions to satisfy TypeScript
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export type InngestFn<TData = any, TOutput = any> = any;
+

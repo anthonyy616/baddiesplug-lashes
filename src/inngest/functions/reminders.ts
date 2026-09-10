@@ -11,7 +11,10 @@ import { parseSlotToDateTime } from '@/lib/timezone';
  * Replaces the polling-based queueAppointmentReminders() cron job.
  */
 
-export const queueRemindersFn = inngest.fn('queue-reminders', async (args: any) => {
+export const queueRemindersFn = inngest.createFunction({
+  id: 'queue-reminders',
+  name: 'Queue Reminders',
+}, async (args: any) => {
   const step = args.step;
 
   const now = Date.now();

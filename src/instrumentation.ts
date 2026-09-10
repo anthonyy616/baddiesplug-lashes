@@ -1,13 +1,17 @@
-import * as Sentry from "@sentry/nextjs";
+// Sentry instrumentation is optional.
+// To enable Sentry, install @sentry/nextjs: npm install @sentry/nextjs
+// Then uncomment the code below.
 
-export async function register() {
-  if (process.env.NEXT_RUNTIME === "nodejs") {
-    await import("../sentry.server.config");
-  }
+// import * as Sentry from "@sentry/nextjs";
 
-  if (process.env.NEXT_RUNTIME === "edge") {
-    await import("../sentry.edge.config");
-  }
-}
+// export async function register() {
+//   if (process.env.NEXT_RUNTIME === "nodejs") {
+//     await import("../sentry.server.config");
+//   }
 
-export const onRequestError = Sentry.captureRequestError;
+//   if (process.env.NEXT_RUNTIME === "edge") {
+//     await import("../sentry.edge.config");
+//   }
+// }
+
+// export const onRequestError = Sentry.captureRequestError;
