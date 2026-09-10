@@ -2,6 +2,8 @@ import { auth } from './index';
 import { db } from '@/lib/db';
 import { users } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
+import { getAdminSession, ADMIN_COOKIE_NAME } from '@/lib/admin-auth';
+import { cookies } from 'next/headers';
 
 export type UserRole = 'customer' | 'admin';
 
@@ -28,6 +30,20 @@ export async function requireAuth(): Promise<SessionUser> {
 }
 
 export async function requireAdmin(): Promise<SessionUser> {
+  // Admin panel uses its own cookie session; customer routes use NextAuth.
+  const cookieStore = await cookies();
+  const adminUsername = getAdminSession(cookieStore.get(ADMIN_COOKIE_NAME)?.value);
+
+  if (adminUsername) {
+    // Admin API actions don't need a customer row; return a synthetic session.
+    return {
+      id: `admin:${adminUsername}`,
+      name: adminUsername,
+      email: '',
+      role: 'admin',
+    };
+  }
+
   const user = await requireAuth();
   if (user.role !== 'admin') {
     throw new Error('Forbidden');

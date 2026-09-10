@@ -30,6 +30,26 @@ export const users = pgTable('users', {
   index('users_deleted_at_idx').on(table.deletedAt),
 ]);
 
+// Admin panel credentials (hidden panel; username chosen at first login).
+// Session cookies are signed with SESSION_SECRET.
+export const adminAuth = pgTable('admin_auth', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  username: varchar('username', { length: 255 }).notNull().unique(),
+  passwordHash: text('password_hash').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+});
+
+// Password credentials for email/password sign-in.
+// Keyed by auth_user_id which mirrors users.auth_user_id.
+export const credentials = pgTable('credentials', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  authUserId: uuid('auth_user_id').notNull().unique(),
+  passwordHash: text('password_hash'),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+});
+
 // NextAuth tables - required for DrizzleAdapter
 export const accounts = pgTable('accounts', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -58,6 +78,17 @@ export const sessions = pgTable('sessions', {
   expires: timestamp('expires', { withTimezone: true }).notNull(),
 }, (table) => [
   index('sessions_userId_idx').on(table.userId),
+]);
+
+// Password reset tokens (single-use, 1 hour expiry)
+export const passwordResetTokens = pgTable('password_reset_tokens', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  identifier: varchar('identifier', { length: 255 }).notNull(),
+  token: varchar('token', { length: 128 }).notNull().unique(),
+  expires: timestamp('expires', { withTimezone: true }).notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+}, (table) => [
+  index('password_reset_tokens_identifier_idx').on(table.identifier),
 ]);
 
 export const verificationTokens = pgTable('verification_tokens', {
@@ -205,7 +236,8 @@ export const availabilityOverrides = pgTable('availability_overrides', {
   endTime: varchar('end_time', { length: 5 }).notNull(), // HH:MM
   mode: varchar('mode', { length: 20 }).notNull(), // 'available' or 'blocked'
   reason: varchar('reason', { length: 500 }),
-  createdByAdminId: uuid('created_by_admin_id').notNull(),
+  // Nullable: admin panel sessions are standalone (not users rows)
+  createdByAdminId: uuid('created_by_admin_id'),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 }, (table) => [
