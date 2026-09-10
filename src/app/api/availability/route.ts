@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAvailableSlots } from '@/lib/availability';
+import { getAvailableSlots, clearRequestCache } from '@/lib/availability';
 
 export async function GET(request: NextRequest) {
   try {
@@ -19,5 +19,9 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ 
       slots: [] 
     });
+  } finally {
+    // Prevent stale in-request cache from leaking across unrelated calls
+    // in long-lived Node dev servers or when multiple routes share a process.
+    clearRequestCache();
   }
 }

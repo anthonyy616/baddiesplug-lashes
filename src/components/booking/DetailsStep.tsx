@@ -20,6 +20,7 @@ interface DetailsStepProps {
   onPhotoRemoved: (id: string) => void;
   onSignIn: () => void;
   uploadBookingId: string | null;
+  onBookingIdAvailable?: (bookingId: string) => void;
 }
 
 const MAX_PHOTOS = 3;
@@ -38,12 +39,13 @@ export default function DetailsStep({
   onPhotoRemoved,
   onSignIn,
   uploadBookingId,
+  onBookingIdAvailable,
 }: DetailsStepProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const isUploading = useRef(false);
 
   const handleFiles = async (files: FileList | null) => {
-    if (!files || !uploadBookingId || isUploading.current) return;
+    if (!files || isUploading.current) return;
 
     for (const file of Array.from(files)) {
       if (photos.length >= MAX_PHOTOS) break;
@@ -60,8 +62,39 @@ export default function DetailsStep({
       isUploading.current = true;
       try {
         const formData = new FormData();
-        formData.append('bookingId', uploadBookingId);
         formData.append('file', file);
+
+        // If we have a bookingId, use it. Otherwise pass the booking intent
+        // so the API can create a booking on the fly.
+        if (uploadBookingId) {
+          formData.append('bookingId', uploadBookingId);
+        } else {
+          // Pass the current booking intent so the API can create a booking
+          // and attach the reference to it.
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const w = window as any;
+          const services = w.__bookingServices || '';
+          const addons = w.__bookingAddons || '';
+          const date = w.__bookingDate || '';
+          const startTime = w.__bookingStartTime || '';
+          const endTime = w.__bookingEndTime || '';
+          const phone = w.__bookingPhone || '';
+          const notes = w.__bookingNotes || '';
+
+          if (services && date && startTime && endTime && phone) {
+            formData.append('serviceIds', services);
+            formData.append('addonIds', addons);
+            formData.append('date', date);
+            formData.append('startTime', startTime);
+            formData.append('endTime', endTime);
+            formData.append('phone', phone);
+            if (notes) formData.append('notes', notes);
+          } else {
+            alert('Please complete the booking details before adding reference photos.');
+            isUploading.current = false;
+            return;
+          }
+        }
 
         const res = await fetch('/api/uploads/reference', {
           method: 'POST',
@@ -71,6 +104,11 @@ export default function DetailsStep({
 
         if (res.ok) {
           onPhotoUploaded({ id: data.image.id, filename: data.image.originalFilename });
+          // Store the bookingId for subsequent uploads in this session
+          if (data.bookingId) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (window as any).__bookingId = data.bookingId;
+          }
         } else {
           alert(data.error || 'Upload failed.');
         }
@@ -187,9 +225,45 @@ export default function DetailsStep({
             </p>
           </>
         ) : (
-          <p className="text-xs text-ink-secondary dark:text-ink-dark-secondary bg-surface-inset dark:bg-surface-inset-dark rounded-lg p-3">
-            Reference photos can be added after the booking is created, from your account page.
-          </p>
+          <div className="space-y-3">
+            <div className="flex gap-3">
+              {photos.map((photo) => (
+                <div key={photo.id} className="relative w-20 h-20 rounded-xl bg-surface-inset dark:bg-surface-inset-dark border border-line dark:border-line-dark flex items-center justify-center">
+                  <Camera className="w-6 h-6 text-burgundy dark:text-burgundy-lifted" />
+                  <button
+                    type="button"
+                    aria-label={`Remove ${photo.filename}`}
+                    onClick={() => onPhotoRemoved(photo.id)}
+                    className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-ink dark:bg-ink-dark text-white rounded-full flex items-center justify-center"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </div>
+              ))}
+              {photos.length < MAX_PHOTOS && (
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  aria-label="Add reference photo"
+                  className="w-20 h-20 rounded-xl border-2 border-dashed border-line dark:border-line-dark hover:border-burgundy hover:text-burgundy dark:hover:text-burgundy-lifted text-ink-secondary dark:text-ink-dark-secondary flex items-center justify-center transition-colors"
+                >
+                  <Camera className="w-6 h-6" />
+                </button>
+              )}
+            </div>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp,image/heic"
+              multiple
+              className="hidden"
+              onChange={(e) => handleFiles(e.target.files)}
+            />
+            <p className="text-xs text-ink-secondary dark:text-ink-dark-secondary">
+              Up to {MAX_PHOTOS} images, 6 MB each (JPG, PNG, WEBP, HEIC). Photos are private and
+              automatically removed after 30 days.
+            </p>
+          </div>
         )}
       </div>
     </div>

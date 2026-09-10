@@ -91,7 +91,10 @@ export default function BookingFlow() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Restore booking intent (survives the sign-in round trip)
+  // Restore booking intent (survives the sign-in round trip and page refreshes).
+  // Only restores when the flow is in its initial empty state — once the user
+  // has made any selection (or explicitly cleared), the cached intent is not
+  // re-applied, so toggling a service off stays off.
   useEffect(() => {
     if (restoredRef.current) return;
     restoredRef.current = true;
@@ -106,6 +109,11 @@ export default function BookingFlow() {
         localStorage.removeItem(INTENT_KEY);
         return;
       }
+
+      // Only restore when everything is still empty (fresh load / refresh).
+      // If the user has already made a choice or cleared a selection, don't
+      // let the cached intent overwrite it.
+      if (selectedServices.length > 0 || selectedAddons.length > 0 || selectedDate || selectedSlot || phone) return;
 
       // Defer catalog-matching until services/addons load
       const applyIntent = () => {
@@ -129,13 +137,15 @@ export default function BookingFlow() {
     } catch {
       // Corrupt intent — ignore
     }
-  }, [services, addons]);
+  }, [services, addons, selectedServices, selectedAddons, selectedDate, selectedSlot, phone]);
 
   // Apply a pre-selected service from a service detail page.
   // This survives refreshes and long idle periods because it's kept in
   // localStorage until the user books or manually clears it.
   // We confirm the current price from the server so the displayed price is
   // always authoritative (not a stale snapshot from when the user clicked).
+  // Only runs once when the catalog is ready; never re-triggers on selection
+  // changes so the user can freely unselect the cached service.
   useEffect(() => {
     if (services.length === 0) return;
 
@@ -151,6 +161,11 @@ export default function BookingFlow() {
           serviceName?: string;
           price?: number;
         } = JSON.parse(raw);
+
+        // Only apply if nothing is currently selected (fresh load / refresh).
+        // Once the user has made a choice (including unselecting), don't
+        // let localStorage re-assert the cached value.
+        if (selectedServices.length > 0) return;
 
         // Prefer an exact catalog match by id.
         let matched = services.find((s) => s.id === selected.serviceId);
@@ -172,7 +187,7 @@ export default function BookingFlow() {
           }
         }
 
-        if (!cancelled && matched && !selectedServices.some((s) => s.id === matched.id)) {
+        if (!cancelled && matched) {
           setSelectedServices([matched]);
           setPreselectService(matched);
           // Keep the key so refreshes restore the selection.
@@ -185,9 +200,9 @@ export default function BookingFlow() {
     return () => {
       cancelled = true;
     };
-  }, [services, selectedServices]);
+  }, [services]);
 
-  // Persist intent on every change
+  // Persist intent on every change (localStorage + window for in-flow uploads)
   useEffect(() => {
     const intent: BookingIntent & { _savedAt: number } = {
       serviceIds: selectedServices.map((s) => s.id),
@@ -205,6 +220,22 @@ export default function BookingFlow() {
       // Storage full/blocked — non-fatal
     }
   }, [selectedServices, selectedAddons, selectedDate, selectedSlot, phone, notes, stepIndex]);
+
+  // Expose current booking intent to the DetailsStep via window so reference
+  // uploads at step 4 can create a booking on the fly if one doesn't exist yet.
+  if (typeof window !== 'undefined') {
+    (window as any).__bookingServices = selectedServices.map((s) => s.id).join(',');
+    (window as any).__bookingAddons = selectedAddons.map((a) => a.id).join(',');
+    (window as any).__bookingDate = selectedDate || '';
+    (window as any).__bookingStartTime = selectedSlot?.startTime || '';
+    (window as any).__bookingEndTime = selectedSlot?.endTime || '';
+    (window as any).__bookingPhone = phone;
+    (window as any).__bookingNotes = notes;
+    if (createdBookingId) {
+      (window as any).__bookingId = createdBookingId;
+    }
+  }
+
 
   const handleSignOutReturn = useCallback(() => {
     // After sign-in completes, we land back on /booking?restored=1; intent restores automatically
@@ -433,7 +464,7 @@ export default function BookingFlow() {
                   onPhotoUploaded={(p) => setPhotos((prev) => [...prev, p])}
                   onPhotoRemoved={(id) => setPhotos((prev) => prev.filter((p) => p.id !== id))}
                   onSignIn={handleSignIn}
-                  uploadBookingId={null}
+                  uploadBookingId={createdBookingId}
                 />
               </section>
             )}

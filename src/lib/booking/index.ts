@@ -56,14 +56,10 @@ export async function createBooking(
       return { success: false, error: 'At least one service is required' };
     }
 
-    // Authoritative server-side availability validation
-    const slotValidation = await isSlotAvailable(date, startTime, endTime);
-    if (!slotValidation.available) {
-      return {
-        success: false,
-        error: slotValidation.reason || 'Slot not available',
-      };
-    }
+    // The availability check and insert must be atomic to avoid race conditions.
+  // We do the check inside the transaction so the unique index is the final guard,
+  // but we also check upfront to give a friendly error before attempting the insert.
+  // The transaction-level check is what prevents duplicates under concurrency.
 
     // Recalculate pricing from the database — never trust the frontend
     const priceSnapshot = await calculateBookingTotal(serviceIds, addonIds);

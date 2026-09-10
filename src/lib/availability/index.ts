@@ -24,12 +24,100 @@ function isValidTime(t: string): boolean {
 }
 
 /**
+ * In-memory cache for availability data within a single request lifecycle.
+ * Both getAvailableSlots and isSlotAvailable share the same underlying
+ * DB queries (overrides + booked slots) when they work on the same date.
+ * The cache is cleared at the end of each API call via clearRequestCache().
+ */
+const requestCache = new Map<string, {
+  overrides: OverrideRow[];
+  bookedSlots: Set<string>;
+}>();
+
+function cacheKey(date: string) {
+  return `avail:${date}`;
+}
+
+interface OverrideRow {
+  startTime: string;
+  endTime: string;
+  mode: string;
+}
+
+type DbLike = typeof db;
+
+/**
+ * Fetch overrides and booked slots for a date, using the in-request cache
+ * so that concurrent calls within the same API request only hit the DB once.
+ * The two queries run in parallel since they're independent.
+ */
+async function getAvailabilityData(
+  date: string,
+  _db?: DbLike,
+): Promise<{ overrides: OverrideRow[]; bookedSlots: Set<string> }> {
+  const ck = cacheKey(date);
+  const cached = requestCache.get(ck);
+  if (cached) return cached;
+
+  const client = _db ?? db;
+
+  // Run both queries concurrently — they're independent of each other.
+  const [overrides, activeBookings] = await Promise.all([
+    client
+      .select({
+        startTime: availabilityOverrides.startTime,
+        endTime: availabilityOverrides.endTime,
+        mode: availabilityOverrides.mode,
+      })
+      .from(availabilityOverrides)
+      .where(eq(availabilityOverrides.date, date)),
+    client.query.bookings.findMany({
+      where: and(
+        eq(bookings.appointmentDate, date),
+        inArray(bookings.status, [...OCCUPYING_STATUSES]),
+      ),
+    }),
+  ]);
+
+  const bookedSlots = new Set<string>();
+  for (const booking of activeBookings) {
+    bookedSlots.add(
+      slotToKey({
+        date: booking.appointmentDate,
+        startTime: booking.startTime,
+        endTime: booking.endTime,
+      }),
+    );
+  }
+
+  const data = { overrides, bookedSlots };
+  requestCache.set(ck, data);
+  return data;
+}
+
+function clearRequestCache() {
+  requestCache.clear();
+}
+
+function getBlockedSlotKeys(date: string, overrides: OverrideRow[]): Set<string> {
+  const blocked = new Set<string>();
+  for (const override of overrides) {
+    if (override.mode === 'blocked') {
+      blocked.add(
+        slotToKey({ date, startTime: override.startTime, endTime: override.endTime }),
+      );
+    }
+  }
+  return blocked;
+}
+
+/**
  * Get all slots for a given date with availability information.
  * Includes slots opened by admin overrides even on normally closed days.
  * Applies the booking window and same-day rules (informational; the server
  * re-validates authoritatively at booking time).
  */
-export async function getAvailableSlots(date: string, _db?:typeof db): Promise<AvailableSlot[]> {
+export async function getAvailableSlots(date: string, _db?: typeof db): Promise<AvailableSlot[]> {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
     return [];
   }
@@ -37,8 +125,8 @@ export async function getAvailableSlots(date: string, _db?:typeof db): Promise<A
   // Get standard slots for the day (empty on closed days)
   const standardSlots = getStandardSlots(date);
 
-  // Get admin overrides for the date
-  const overrides = await getOverrides(date, _db);
+  // Get admin overrides + booked slots in parallel, cached for this request.
+  const { overrides, bookedSlots } = await getAvailabilityData(date, _db);
 
   const standardKeys = new Set(standardSlots.map(slotToKey));
 
@@ -71,11 +159,7 @@ export async function getAvailableSlots(date: string, _db?:typeof db): Promise<A
     }
   }
 
-  // Get blocked slots from availability overrides
   const blockedSlots = getBlockedSlotKeys(date, overrides);
-
-  // Get occupied slots (pending and confirmed bookings)
-  const bookedSlots = await getBookedSlots(date, _db);
 
   return allSlots.map((slot) => {
     const key = slotToKey(slot);
@@ -103,7 +187,7 @@ export async function isSlotAvailable(
   date: string,
   startTime: string,
   endTime: string,
-  _db?: DbLike
+  _db?: DbLike,
 ): Promise<{ available: boolean; reason?: string }> {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !isValidTime(startTime) || !isValidTime(endTime)) {
     return { available: false, reason: 'invalid_slot' };
@@ -120,11 +204,11 @@ export async function isSlotAvailable(
   // The slot must exist as a standard slot OR be explicitly opened by an override.
   const standardSlots = getStandardSlots(date);
   const standardKeys = new Set(standardSlots.map(slotToKey));
-  const overrides = await getOverrides(date, _db);
+  const { overrides, bookedSlots } = await getAvailabilityData(date, _db);
   const openedKeys = new Set(
     overrides
       .filter((o) => o.mode === 'available')
-      .map((o) => slotToKey({ date, startTime: o.startTime, endTime: o.endTime }))
+      .map((o) => slotToKey({ date, startTime: o.startTime, endTime: o.endTime })),
   );
 
   const slotKey = slotToKey(slot);
@@ -154,68 +238,12 @@ export async function isSlotAvailable(
     return { available: false, reason: 'blocked' };
   }
 
-  // Check if slot is already booked
-  const bookedSlots = await getBookedSlots(date, _db);
+  // Check if slot is already booked (from cached result)
   if (bookedSlots.has(slotKey)) {
     return { available: false, reason: 'booked' };
   }
 
   return { available: true };
-}
-
-interface OverrideRow {
-  startTime: string;
-  endTime: string;
-  mode: string;
-}
-
-type DbLike = typeof db;
-
-function getOverrides(date: string, _db?: DbLike): Promise<OverrideRow[]> {
-  const client = _db ?? db;
-  return client
-    .select({ startTime: availabilityOverrides.startTime, endTime: availabilityOverrides.endTime, mode: availabilityOverrides.mode })
-    .from(availabilityOverrides)
-    .where(eq(availabilityOverrides.date, date));
-}
-
-function getBlockedSlotKeys(date: string, overrides: OverrideRow[]): Set<string> {
-  const blocked = new Set<string>();
-  for (const override of overrides) {
-    if (override.mode === 'blocked') {
-      blocked.add(
-        slotToKey({ date, startTime: override.startTime, endTime: override.endTime })
-      );
-    }
-  }
-  return blocked;
-}
-
-/**
- * Get occupied slots for a date (pending and confirmed bookings).
- */
-export async function getBookedSlots(date: string, _db?: DbLike): Promise<Set<string>> {
-  const client = _db ?? db;
-  const booked = new Set<string>();
-
-  const activeBookings = await client.query.bookings.findMany({
-    where: and(
-      eq(bookings.appointmentDate, date),
-      inArray(bookings.status, [...OCCUPYING_STATUSES])
-    ),
-  });
-
-  for (const booking of activeBookings) {
-    booked.add(
-      slotToKey({
-        date: booking.appointmentDate,
-        startTime: booking.startTime,
-        endTime: booking.endTime,
-      })
-    );
-  }
-
-  return booked;
 }
 
 /**
@@ -224,7 +252,7 @@ export async function getBookedSlots(date: string, _db?: DbLike): Promise<Set<st
 export async function validateBookingSlot(
   date: string,
   startTime: string,
-  endTime: string
+  endTime: string,
 ): Promise<{ valid: boolean; error?: string }> {
   const result = await isSlotAvailable(date, startTime, endTime);
 
@@ -234,3 +262,11 @@ export async function validateBookingSlot(
 
   return { valid: true };
 }
+
+/**
+ * Expose the cache clearer so API routes can flush between requests.
+ * In serverless/Edge contexts each invocation gets its own module instance,
+ * but in long-lived Node dev servers or when multiple calls share a process,
+ * this prevents stale data across unrelated requests.
+ */
+export { clearRequestCache };

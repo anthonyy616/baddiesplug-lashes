@@ -8,21 +8,23 @@ export const DEPOSIT_PERCENTAGE = 0.5; // 50% deposit required
 export const DEFAULT_DEPOSIT = 500000; // 5000 NGN in kobo (minimum deposit)
 
 /**
- * Calculate booking total from services and addons
+ * Calculate booking total from services and addons.
+ * Fetches services and addons concurrently so the round-trip is a single
+ * pipeline rather than two sequential queries.
  */
 export async function calculateBookingTotal(
   serviceIds: string[],
   addonIds: string[]
 ): Promise<PriceSnapshot> {
-  // Fetch services
-  const serviceRecords = serviceIds.length > 0
-    ? await db.select().from(services).where(inArray(services.id, serviceIds))
-    : [];
-
-  // Fetch addons
-  const addonRecords = addonIds.length > 0
-    ? await db.select().from(addons).where(inArray(addons.id, addonIds))
-    : [];
+  // Fetch services and addons concurrently.
+  const [serviceRecords, addonRecords] = await Promise.all([
+    serviceIds.length > 0
+      ? db.select().from(services).where(inArray(services.id, serviceIds))
+      : Promise.resolve([]),
+    addonIds.length > 0
+      ? db.select().from(addons).where(inArray(addons.id, addonIds))
+      : Promise.resolve([]),
+  ]);
 
   // Calculate totals
   const serviceTotal = serviceRecords.reduce((sum, s) => sum + s.price, 0);
