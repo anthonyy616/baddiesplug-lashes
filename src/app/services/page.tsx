@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { db } from '@/lib/db';
 import { services, serviceImages } from '@/lib/db/schema';
 import { eq, and } from 'drizzle-orm';
+import SiteNav from '@/components/SiteNav';
 
 export const dynamic = 'force-dynamic';
 
@@ -58,6 +59,7 @@ export default async function ServicesPage() {
 
   return (
     <div className="min-h-screen bg-white dark:bg-black">
+      <SiteNav />
       <header className="bg-white dark:bg-black border-b border-gray-200 dark:border-gray-800 pt-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 text-center">
           <h1 className="text-4xl font-bold text-gray-900 dark:text-white">Our Services</h1>

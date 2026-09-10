@@ -2,6 +2,7 @@ import { auth } from '@/lib/auth';
 import { requireAuth } from '@/lib/auth/types';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
+import SiteNav from '@/components/SiteNav';
 import { getCustomerBookings } from '@/lib/booking';
 import { formatLagosTime } from '@/lib/timezone';
 import { db } from '@/lib/db';
@@ -56,19 +57,20 @@ export default async function AccountPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 dark:bg-black">
+      <SiteNav />
       <div className="max-w-4xl mx-auto px-4 py-8">
         {/* Header */}
-        <div className="bg-white rounded-lg shadow p-6 mb-6">
+        <div className="bg-white dark:bg-gray-900 rounded-lg shadow p-6 mb-6">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">My Account</h1>
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">My Account</h1>
               {unreadCount > 0 && (
                 <span className="inline-flex items-center gap-1 px-2 py-1 bg-burgundy/10 text-burgundy text-sm rounded-full ml-4">
                   {unreadCount} unread notification{unreadCount !== 1 ? 's' : ''}
                 </span>
               )}
-              <p className="text-gray-600">Welcome back, {user?.name}</p>
+              <p className="text-gray-600 dark:text-gray-400">Welcome back, {user?.name}</p>
             </div>
             <Link
               href="/services"
@@ -82,11 +84,11 @@ export default async function AccountPage() {
         <CustomerNotifications />
 
         {/* Current Bookings */}
-        <div className="bg-white rounded-lg shadow p-6">
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">My Bookings</h2>
+        <div className="bg-white dark:bg-gray-900 rounded-lg shadow p-6">
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">My Bookings</h2>
 
           {bookings.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">
+            <div className="text-center py-8 text-gray-500 dark:text-gray-400">
               <p>You have no upcoming bookings.</p>
               <Link
                 href="/booking"
@@ -101,7 +103,7 @@ export default async function AccountPage() {
                 <Link
                   key={booking.id}
                   href={`/account/bookings/${booking.id}`}
-                  className="block p-4 border border-gray-200 rounded-lg hover:bg-gray-50"
+                  className="block p-4 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800"
                 >
                   <div className="flex items-center justify-between">
                     <div>
@@ -111,17 +113,17 @@ export default async function AccountPage() {
                         >
                           {booking.status.replace('_', ' ')}
                         </span>
-                        <span className="font-mono text-sm text-gray-600">
+                        <span className="font-mono text-sm text-gray-600 dark:text-gray-400">
                           {booking.reference}
                         </span>
                       </div>
-                      <p className="text-sm text-gray-600 mt-1">
+                      <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
                         {formatLagosTime(new Date(booking.appointmentDate + 'T00:00:00'), 'EEEE, MMMM d, yyyy')} at {booking.startTime}
                       </p>
                     </div>
                     <div className="text-right">
-                      <p className="font-medium">₦{(booking.total / 100).toFixed(2)}</p>
-                      <p className="text-sm text-gray-500">
+                      <p className="font-medium text-gray-900 dark:text-white">₦{(booking.total / 100).toFixed(2)}</p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">
                         {statusLabel[booking.status] || ''}
                       </p>
                     </div>

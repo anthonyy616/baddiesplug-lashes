@@ -44,7 +44,7 @@ export default async function BookingDetailPage({ params }: PageProps) {
   );
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 dark:bg-black">
       <div className="max-w-4xl mx-auto px-4 py-8">
         <Link
           href="/account"
@@ -57,15 +57,15 @@ export default async function BookingDetailPage({ params }: PageProps) {
         <div className={`rounded-lg p-6 mb-6 ${
           booking.status === 'pending' ? 'bg-amber-50 border border-amber-200' :
           booking.status === 'confirmed' ? 'bg-green-50 border border-green-200' :
-          booking.status === 'completed' ? 'bg-blue-50 border border-blue-200' :
-          booking.status === 'cancelled' ? 'bg-red-50 border border-red-200' :
-          booking.status === 'rejected' ? 'bg-gray-50 border border-gray-200' :
-          'bg-gray-50 border border-gray-200'
+          booking.status === 'completed' ? 'bg-blue-50 border border-blue-200 dark:bg-blue-950/40 dark:border-blue-800' :
+          booking.status === 'cancelled' ? 'bg-red-50 border border-red-200 dark:bg-red-950/40 dark:border-red-800' :
+          booking.status === 'rejected' ? 'bg-gray-50 border border-gray-200 dark:bg-gray-900 dark:border-gray-700' :
+          'bg-gray-50 border border-gray-200 dark:bg-gray-900 dark:border-gray-700'
         }`}>
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-bold">Booking Details</h1>
-              <p className="text-gray-600 mt-1">Reference: {booking.reference}</p>
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Booking Details</h1>
+              <p className="text-gray-600 dark:text-gray-400 mt-1">Reference: {booking.reference}</p>
             </div>
             <span className={`px-4 py-2 rounded-full text-lg font-semibold ${
               booking.status === 'pending' ? 'bg-amber-100 text-amber-800' :
@@ -84,39 +84,39 @@ export default async function BookingDetailPage({ params }: PageProps) {
           {/* Main Content */}
           <div className="lg:col-span-2 space-y-6">
             {/* Appointment Info */}
-            <div className="bg-white rounded-lg shadow p-6">
-              <h2 className="font-semibold text-gray-900 mb-4">Appointment</h2>
+            <div className="bg-white dark:bg-gray-900 rounded-lg shadow p-6">
+              <h2 className="font-semibold text-gray-900 dark:text-white mb-4">Appointment</h2>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <p className="text-sm text-gray-600">Date</p>
-                  <p className="font-medium">{formatLagosTime(new Date(booking.appointmentDate + 'T00:00:00'), 'EEEE, MMMM d, yyyy')}</p>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">Date</p>
+                  <p className="font-medium text-gray-900 dark:text-white">{formatLagosTime(new Date(booking.appointmentDate + 'T00:00:00'), 'EEEE, MMMM d, yyyy')}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-600">Time</p>
-                  <p className="font-medium">{booking.startTime} - {booking.endTime}</p>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">Time</p>
+                  <p className="font-medium text-gray-900 dark:text-white">{booking.startTime} - {booking.endTime}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-600">Created</p>
-                  <p className="font-medium">{formatLagosTime(new Date(booking.createdAt), 'MMM d, yyyy h:mm a')}</p>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">Created</p>
+                  <p className="font-medium text-gray-900 dark:text-white">{formatLagosTime(new Date(booking.createdAt), 'MMM d, yyyy h:mm a')}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-600">Status</p>
-                  <p className="font-medium capitalize">{booking.status.replace('_', ' ')}</p>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">Status</p>
+                  <p className="font-medium capitalize text-gray-900 dark:text-white">{booking.status.replace('_', ' ')}</p>
                 </div>
               </div>
             </div>
 
             {/* Services */}
-            <div className="bg-white rounded-lg shadow p-6">
-              <h2 className="font-semibold text-gray-900 mb-4">Services</h2>
+            <div className="bg-white dark:bg-gray-900 rounded-lg shadow p-6">
+              <h2 className="font-semibold text-gray-900 dark:text-white mb-4">Services</h2>
               <div className="space-y-4">
                 {serviceDetails.map((service: any, index: number) => (
-                  <div key={index} className="flex justify-between p-4 bg-gray-50 rounded-lg">
+                  <div key={index} className="flex justify-between p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
                     <div>
-                      <p className="font-medium">{service?.name || booking.services?.[index]?.serviceNameSnapshot}</p>
-                      <p className="text-sm text-gray-600">{service?.description}</p>
+                      <p className="font-medium text-gray-900 dark:text-white">{service?.name || booking.services?.[index]?.serviceNameSnapshot}</p>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">{service?.description}</p>
                     </div>
-                    <p className="font-medium">₦{(service?.price || booking.services?.[index]?.unitPriceSnapshot || 0) / 100}</p>
+                    <p className="font-medium text-gray-900 dark:text-white">₦{(service?.price || booking.services?.[index]?.unitPriceSnapshot || 0) / 100}</p>
                   </div>
                 ))}
               </div>
@@ -124,9 +124,9 @@ export default async function BookingDetailPage({ params }: PageProps) {
 
             {/* Notes */}
             {booking.customerNotes && (
-              <div className="bg-white rounded-lg shadow p-6">
-                <h2 className="font-semibold text-gray-900 mb-4">Your Notes</h2>
-                <p className="text-gray-700 whitespace-pre-wrap">{booking.customerNotes}</p>
+              <div className="bg-white dark:bg-gray-900 rounded-lg shadow p-6">
+                <h2 className="font-semibold text-gray-900 dark:text-white mb-4">Your Notes</h2>
+                <p className="text-gray-700 dark:text-gray-300 whitespace-pre-wrap">{booking.customerNotes}</p>
               </div>
             )}
           </div>
@@ -134,53 +134,53 @@ export default async function BookingDetailPage({ params }: PageProps) {
           {/* Sidebar */}
           <div className="space-y-6">
             {/* Contact Info */}
-            <div className="bg-white rounded-lg shadow p-6">
-              <h2 className="font-semibold text-gray-900 mb-4">Contact</h2>
+            <div className="bg-white dark:bg-gray-900 rounded-lg shadow p-6">
+              <h2 className="font-semibold text-gray-900 dark:text-white mb-4">Contact</h2>
               <div className="space-y-3 text-sm">
                 <div>
-                  <p className="text-gray-600">Name</p>
-                  <p className="font-medium">{user?.name}</p>
+                  <p className="text-gray-600 dark:text-gray-400">Name</p>
+                  <p className="font-medium text-gray-900 dark:text-white">{user?.name}</p>
                 </div>
                 <div>
-                  <p className="text-gray-600">Email</p>
-                  <p className="font-medium">{user?.email}</p>
+                  <p className="text-gray-600 dark:text-gray-400">Email</p>
+                  <p className="font-medium text-gray-900 dark:text-white">{user?.email}</p>
                 </div>
                 <div>
-                  <p className="text-gray-600">Phone</p>
-                  <p className="font-medium">{booking.phone}</p>
+                  <p className="text-gray-600 dark:text-gray-400">Phone</p>
+                  <p className="font-medium text-gray-900 dark:text-white">{booking.phone}</p>
                 </div>
               </div>
             </div>
 
             {/* Payment Summary */}
-            <div className="bg-white rounded-lg shadow p-6">
-              <h2 className="font-semibold text-gray-900 mb-4">Payment</h2>
+            <div className="bg-white dark:bg-gray-900 rounded-lg shadow p-6">
+              <h2 className="font-semibold text-gray-900 dark:text-white mb-4">Payment</h2>
               <div className="space-y-3 text-sm">
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Subtotal</span>
-                  <span className="font-medium">₦{(booking.subtotal / 100).toFixed(2)}</span>
+                  <span className="text-gray-600 dark:text-gray-400">Subtotal</span>
+                  <span className="font-medium text-gray-900 dark:text-white">₦{(booking.subtotal / 100).toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Deposit Required</span>
-                  <span className="font-medium">₦{(booking.depositRequired / 100).toFixed(2)}</span>
+                  <span className="text-gray-600 dark:text-gray-400">Deposit Required</span>
+                  <span className="font-medium text-gray-900 dark:text-white">₦{(booking.depositRequired / 100).toFixed(2)}</span>
                 </div>
-                <div className="border-t pt-3 flex justify-between font-semibold">
-                  <span>Total</span>
-                  <span>₦{(booking.total / 100).toFixed(2)}</span>
+                <div className="border-t border-gray-200 dark:border-gray-700 pt-3 flex justify-between font-semibold">
+                  <span className="text-gray-900 dark:text-white">Total</span>
+                  <span className="text-gray-900 dark:text-white">₦{(booking.total / 100).toFixed(2)}</span>
                 </div>
               </div>
               {booking.status === 'pending' && (
                 <div className="mt-4 p-4 bg-burgundy/10 rounded-lg">
                   <p className="text-sm text-burgundy font-medium">Pending Admin Approval</p>
-                  <p className="text-xs text-gray-600 mt-1">Your booking is pending approval. You'll receive a confirmation email once approved.</p>
+                  <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">Your booking is pending approval. You'll receive a confirmation email once approved.</p>
                 </div>
               )}
             </div>
 
             {/* Actions */}
             {canCancel && (
-              <div className="bg-white rounded-lg shadow p-6">
-                <h2 className="font-semibold text-gray-900 mb-4">Actions</h2>
+              <div className="bg-white dark:bg-gray-900 rounded-lg shadow p-6">
+                <h2 className="font-semibold text-gray-900 dark:text-white mb-4">Actions</h2>
                 <CancelBookingButton bookingId={booking.id} />
               </div>
             )}

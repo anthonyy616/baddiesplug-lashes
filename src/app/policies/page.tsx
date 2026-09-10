@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import SiteNav from '@/components/SiteNav';
 
 export const metadata = {
   title: 'Policies | The Baddies Plug',
@@ -50,7 +51,8 @@ const policies = [
 
 export default function PoliciesPage() {
   return (
-    <div className="min-h-screen bg-white dark:bg-black pt-16">
+    <div className="min-h-screen bg-white dark:bg-black">
+      <SiteNav />
       <main className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
         <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-4">Policies</h1>
         <p className="text-gray-600 dark:text-gray-400 mb-10">

@@ -11,6 +11,7 @@ import {
   getPublicUrl,
   generateServiceImageKey,
 } from '@/lib/storage';
+import { processImageToWebP } from '@/lib/storage/image-processing';
 import { requireAdminSession } from '@/lib/admin-auth';
 
 const ALLOWED_TYPES = new Set([
@@ -122,27 +123,24 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Cannot upload images for an inactive service' }, { status: 400 });
     }
 
-    const clientMime = file.type;
-    const extFromName = getTypeFromFilename(file.name);
-    // Decide the stored type: prefer client type if it's an allowed image,
-    // otherwise fall back to extension-derived type, otherwise reject.
-    let resolvedMime: string;
-    if (isImageType(clientMime)) {
-      resolvedMime = clientMime;
-    } else if (extFromName && isImageType(extFromName)) {
-      resolvedMime = extFromName;
-    } else {
-      return NextResponse.json({ error: 'Image format not allowed (WEBP, JPG, PNG, HEIF, HEIC)' }, { status: 400 });
+    // Decode → resize → compress → convert to true WebP before storing.
+    // This replaces the previous behavior of storing original bytes (including
+    // 6 MB HEIC files) under a .webp key. Also rejects undecodable uploads.
+    let processed;
+    try {
+      processed = await processImageToWebP(Buffer.from(await file.arrayBuffer()));
+    } catch {
+      return NextResponse.json(
+        { error: 'This file could not be processed as an image. Please upload a valid WEBP, JPG, PNG, or HEIC.' },
+        { status: 400 }
+      );
     }
 
-    // Normalize HEIF/HEIC to a single stored mime so the public URL always
-    // ends with .webp and the browser can display it. We store the actual
-    // bytes as-is (R2 serves by ContentType), but the key uses .webp.
     const storageKey = generateServiceImageKey(serviceId, uuidv4());
     const uploadResult = await uploadToR2WithCache(
-      Buffer.from(await file.arrayBuffer()),
+      processed.buffer,
       storageKey,
-      resolvedMime,
+      processed.contentType,
       true // public, long-lived cache for first-display speed
     );
 

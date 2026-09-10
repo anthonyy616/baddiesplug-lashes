@@ -10,6 +10,7 @@ import {
   generateReferenceImageKey,
   isStorageConfigured,
 } from '@/lib/storage';
+import { processImageToWebP } from '@/lib/storage/image-processing';
 import { validateFileName, validateFileSize, validateMimeType } from '@/lib/validation';
 import { createBooking } from '@/lib/booking';
 import { headers } from 'next/headers';
@@ -121,10 +122,22 @@ export async function POST(request: NextRequest) {
     }
 
     const imageId = uuidv4();
-    const storageKey = generateReferenceImageKey(bookingId, imageId);
-    const buffer = Buffer.from(await file.arrayBuffer());
+    const storageKey = `${generateReferenceImageKey(bookingId, imageId)}.webp`;
+    const raw = Buffer.from(await file.arrayBuffer());
 
-    const upload = await uploadToR2(buffer, storageKey, file.type);
+    // Decode → resize → compress → convert to true WebP before storing.
+    // Rejects undecodable bytes (e.g. a text file renamed to .jpg) with a 400.
+    let processed;
+    try {
+      processed = await processImageToWebP(raw);
+    } catch {
+      return NextResponse.json(
+        { error: 'This file could not be processed as an image. Please upload a valid JPG, PNG, WEBP, or HEIC.' },
+        { status: 400 },
+      );
+    }
+
+    const upload = await uploadToR2(processed.buffer, storageKey, processed.contentType);
     if (!upload.success) {
       return NextResponse.json({ error: 'Upload failed. Please try again.' }, { status: 500 });
     }
@@ -139,8 +152,8 @@ export async function POST(request: NextRequest) {
         bookingId,
         storageKey,
         originalFilename: file.name.slice(0, 255),
-        mimeType: file.type,
-        sizeBytes: file.size,
+        mimeType: processed.contentType,
+        sizeBytes: processed.size,
         expiresAt,
       })
       .returning();

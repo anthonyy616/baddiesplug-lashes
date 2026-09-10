@@ -1,32 +1,11 @@
 import Link from 'next/link';
+import SiteNav from '@/components/SiteNav';
 
 export default function HomePage() {
   return (
     <div className="min-h-screen bg-white dark:bg-black">
       {/* Navigation */}
-      <nav className="fixed top-0 left-0 right-0 z-50 bg-white/95 dark:bg-black/95 backdrop-blur-sm border-b border-gray-200 dark:border-gray-800">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <Link href="/" className="text-2xl font-bold text-burgundy">
-              The Baddies Plug
-            </Link>
-            <div className="hidden md:flex items-center space-x-6">
-              <Link href="/services" className="text-gray-700 dark:text-gray-300 hover:text-burgundy dark:hover:text-burgundy transition-colors">
-                Services
-              </Link>
-              <Link href="/contact" className="text-gray-700 dark:text-gray-300 hover:text-burgundy dark:hover:text-burgundy transition-colors">
-                Contact
-              </Link>
-              <Link href="/policies" className="text-gray-700 dark:text-gray-300 hover:text-burgundy dark:hover:text-burgundy transition-colors">
-                Policies
-              </Link>
-              <Link href="/booking" className="bg-burgundy text-white px-4 py-2 rounded-md hover:bg-burgundy/90 transition-colors">
-                Book Now
-              </Link>
-            </div>
-          </div>
-        </div>
-      </nav>
+      <SiteNav />
 
       {/* Hero Section */}
       <section className="relative min-h-screen flex items-center justify-center pt-16">

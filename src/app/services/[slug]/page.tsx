@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import { getServiceBySlugWithImages } from '@/lib/pricing';
 import ServiceGallery from './ServiceGallery';
 import BookNowButton from '@/components/BookNowButton';
+import SiteNav from '@/components/SiteNav';
 
 export const dynamic = 'force-dynamic';
 
@@ -25,8 +26,10 @@ export default async function ServiceDetailPage({ params }: PageProps) {
     }).format(kobo / 100);
 
   return (
-    <div className="min-h-screen bg-white dark:bg-black pt-16">
-      <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+    <div className="min-h-screen bg-white dark:bg-black">
+      <SiteNav />
+      <div className="pt-16">
+        <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
         <Link
           href="/services"
           className="inline-block mb-6 text-burgundy hover:text-burgundy/80"
@@ -70,7 +73,8 @@ export default async function ServiceDetailPage({ params }: PageProps) {
             />
           </div>
         </div>
-      </main>
+        </main>
+      </div>
     </div>
   );
 }

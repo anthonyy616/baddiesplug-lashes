@@ -1,5 +1,9 @@
 @import "tailwindcss";
 
+/* Class-based dark mode (Tailwind v4): `dark:` utilities respond to the
+   .dark class on <html>, which ThemeProvider toggles — NOT the OS setting. */
+@custom-variant dark (&:where(.dark, .dark *));
+
 @theme {
   --color-burgundy: #940025;
   --color-burgundy-hover: #7A001F;
