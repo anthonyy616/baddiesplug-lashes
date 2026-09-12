@@ -27,10 +27,16 @@ export interface GalleryImage {
 }
 
 export async function getHeroImage(): Promise<HomeMedia> {
-  const [row] = await db
-    .select()
-    .from(homepageMedia)
-    .where(eq(homepageMedia.slot, 'hero'));
+  let row: typeof homepageMedia.$inferSelect | undefined;
+
+  try {
+    [row] = await db
+      .select()
+      .from(homepageMedia)
+      .where(eq(homepageMedia.slot, 'hero'));
+  } catch (error) {
+    console.error('Hero media query failed; using static fallback:', error);
+  }
 
   if (row) {
     return { src: row.publicUrl, alt: row.altText ?? HOME_IMAGES.hero.alt };
@@ -39,10 +45,16 @@ export async function getHeroImage(): Promise<HomeMedia> {
 }
 
 export async function getEditorialImage(): Promise<HomeMedia> {
-  const [row] = await db
-    .select()
-    .from(homepageMedia)
-    .where(eq(homepageMedia.slot, 'editorial'));
+  let row: typeof homepageMedia.$inferSelect | undefined;
+
+  try {
+    [row] = await db
+      .select()
+      .from(homepageMedia)
+      .where(eq(homepageMedia.slot, 'editorial'));
+  } catch (error) {
+    console.error('Editorial media query failed; using static fallback:', error);
+  }
 
   if (row) {
     return { src: row.publicUrl, alt: row.altText ?? HOME_IMAGES.editorial.alt };
@@ -55,9 +67,17 @@ export async function getEditorialImage(): Promise<HomeMedia> {
  * the static keys from site.ts keep the editorial layout intact (placeholders).
  */
 export async function getGalleryImages(limit = 6): Promise<GalleryImage[]> {
-  const rows = await db.query.galleryImages.findMany({
-    orderBy: [asc(galleryImages.displayOrder), asc(galleryImages.createdAt)],
-  });
+  let rows: Awaited<ReturnType<typeof db.query.galleryImages.findMany>> = [];
+
+  try {
+    rows = await db.query.galleryImages.findMany({
+      orderBy: [asc(galleryImages.displayOrder), asc(galleryImages.createdAt)],
+    });
+  } catch (error) {
+    // Keep the public homepage available while a deployment is waiting for
+    // the optional admin-media migration to reach its database.
+    console.error('Gallery media query failed; using static fallback:', error);
+  }
 
   if (rows.length === 0) {
     return HOME_IMAGES.gallery.slice(0, limit).map((src) => ({
