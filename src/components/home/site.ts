@@ -55,10 +55,10 @@ export const HOME_IMAGES = {
  */
 export const LOCATION = {
   // Street address shown in the location section and footer.
-  address: '5 Adenike Wole Ajibode St, Lekki Phase I, Lagos 106104, Lagos',
+  address: '15 Remi Olowude Street, Lekki Phase I, Lagos 106104, Lagos',
   // Used for both the maps embed and the "Get Directions" link. Using a
   // free-text query means no place ID needs to be looked up.
-  mapQuery: '5 Adenike Wole Ajibode St, Lekki Phase I, Lagos 106104, Lagos',
+  mapQuery: ' 15 Remi Olowude Street, Lekki Phase I, Lagos 106104, Lagos',
   instagramUrl: 'https://instagram.com/the_baddiesplug', //actual handle, might change later on
 } as const;
 
