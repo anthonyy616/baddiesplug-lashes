@@ -27,6 +27,7 @@ export default async function AdminServicesPage() {
           price: s.price,
           durationMinutes: s.durationMinutes,
           isActive: s.isActive,
+          isFeatured: s.isFeatured,
           displayOrder: s.displayOrder,
         }))}
       />

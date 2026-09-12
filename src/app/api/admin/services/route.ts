@@ -24,6 +24,7 @@ const updateSchema = z.object({
   price: z.number().int().min(0).optional(),
   durationMinutes: z.number().int().min(5).max(120).optional(),
   isActive: z.boolean().optional(),
+  isFeatured: z.boolean().optional(),
   displayOrder: z.number().int().optional(),
 });
 

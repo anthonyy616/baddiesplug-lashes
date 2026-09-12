@@ -95,7 +95,7 @@ export default function AddonsManager({ initialAddons }: { initialAddons: AddonR
             placeholder="Add-on name"
             value={form.name}
             onChange={(e) => setForm({ ...form, name: e.target.value })}
-            className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
+            className="px-3 py-2 border border-black rounded-lg text-sm text-black"
             required
           />
           <input
@@ -104,7 +104,7 @@ export default function AddonsManager({ initialAddons }: { initialAddons: AddonR
             step="0.01"
             value={form.priceNaira}
             onChange={(e) => setForm({ ...form, priceNaira: e.target.value })}
-            className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
+            className="px-3 py-2 border border-black rounded-lg text-sm text-black"
             required
           />
           <input
@@ -118,7 +118,7 @@ export default function AddonsManager({ initialAddons }: { initialAddons: AddonR
             placeholder="Description"
             value={form.description}
             onChange={(e) => setForm({ ...form, description: e.target.value })}
-            className="px-3 py-2 border border-gray-300 rounded-lg text-sm md:col-span-2"
+            className="px-3 py-2 border border-black rounded-lg text-sm text-black md:col-span-2"
             required
           />
           <button type="submit" className="px-4 py-2 bg-burgundy text-white rounded-lg text-sm font-medium md:col-span-2">
@@ -150,7 +150,7 @@ export default function AddonsManager({ initialAddons }: { initialAddons: AddonR
                   <input
                     type="number"
                     defaultValue={a.price / 100}
-                    className="w-24 px-2 py-1 border border-gray-300 rounded text-sm"
+                    className="w-24 px-2 py-1 border border-black rounded text-sm text-black"
                     onBlur={(e) => {
                       const naira = parseFloat(e.target.value);
                       if (!Number.isNaN(naira) && naira * 100 !== a.price) {

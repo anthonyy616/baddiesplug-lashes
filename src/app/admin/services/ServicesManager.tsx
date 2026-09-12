@@ -18,6 +18,7 @@ interface ServiceRow {
   price: number;
   durationMinutes: number;
   isActive: boolean;
+  isFeatured: boolean;
   displayOrder: number;
   images?: ServiceImage[];
 }
@@ -149,13 +150,14 @@ const formatPrice = (kobo: number) =>
             <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Price (₦)</th>
             <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Duration</th>
             <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Active</th>
+            <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Home</th>
             <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Order</th>
             <th className="px-4 py-2" />
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-200">
           {list.length === 0 && (
-            <tr><td colSpan={6} className="px-4 py-6 text-center text-gray-500 text-sm">None yet</td></tr>
+            <tr><td colSpan={7} className="px-4 py-6 text-center text-gray-500 text-sm">None yet</td></tr>
           )}
           {list.map((s) => [
             <tr key={s.id} className={s.isActive ? '' : 'opacity-50'}>
@@ -181,7 +183,7 @@ const formatPrice = (kobo: number) =>
                 <input
                   type="number"
                   defaultValue={s.price / 100}
-                  className="w-24 px-2 py-1 border border-gray-300 rounded text-sm"
+                  className="w-24 px-2 py-1 border border-black rounded text-sm text-black"
                   onBlur={(e) => {
                     const naira = parseFloat(e.target.value);
                     if (!Number.isNaN(naira) && naira * 100 !== s.price) {
@@ -204,6 +206,18 @@ const formatPrice = (kobo: number) =>
                 </button>
               </td>
               <td className="px-4 py-3">
+                <button
+                  onClick={() => patch(s.id, { isFeatured: !s.isFeatured })}
+                  disabled={busyId === s.id}
+                  title="Show this service on the homepage (first 4 featured win)"
+                  className={`px-2 py-1 text-xs rounded-full font-medium ${
+                    s.isFeatured ? 'bg-burgundy text-white' : 'bg-gray-200 text-gray-600'
+                  }`}
+                >
+                  {s.isFeatured ? 'On Home' : 'Off'}
+                </button>
+              </td>
+              <td className="px-4 py-3">
                 <div className="flex gap-1">
                   <button onClick={() => move(s, -1)} className="px-1.5 border rounded text-sm hover:bg-gray-50">↑</button>
                   <button onClick={() => move(s, 1)} className="px-1.5 border rounded text-sm hover:bg-gray-50">↓</button>
@@ -221,7 +235,7 @@ const formatPrice = (kobo: number) =>
             </tr>,
             expandedId === s.id ? (
               <tr key={`${s.id}-images`}>
-                <td colSpan={6} className="px-4 py-4">
+                <td colSpan={7} className="px-4 py-4">
                   <ServiceImageUploader
                     serviceId={s.id}
                     serviceName={s.name}
@@ -261,7 +275,7 @@ const formatPrice = (kobo: number) =>
             placeholder="Service name"
             value={form.name}
             onChange={(e) => setForm({ ...form, name: e.target.value })}
-            className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
+            className="px-3 py-2 border border-black rounded-lg text-sm text-black"
             required
           />
           <select
@@ -278,7 +292,7 @@ const formatPrice = (kobo: number) =>
             step="0.01"
             value={form.priceNaira}
             onChange={(e) => setForm({ ...form, priceNaira: e.target.value })}
-            className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
+            className="px-3 py-2 border border-black rounded-lg text-sm text-black"
             required
           />
           <input
@@ -288,7 +302,7 @@ const formatPrice = (kobo: number) =>
             max={120}
             value={form.durationMinutes}
             onChange={(e) => setForm({ ...form, durationMinutes: e.target.value })}
-            className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
+            className="px-3 py-2 border border-black rounded-lg text-sm text-black"
             required
           />
           <input
@@ -296,13 +310,13 @@ const formatPrice = (kobo: number) =>
             type="number"
             value={form.displayOrder}
             onChange={(e) => setForm({ ...form, displayOrder: e.target.value })}
-            className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
+            className="px-3 py-2 border border-black rounded-lg text-sm text-black"
           />
           <textarea
             placeholder="Description"
             value={form.description}
             onChange={(e) => setForm({ ...form, description: e.target.value })}
-            className="px-3 py-2 border border-gray-300 rounded-lg text-sm md:col-span-2"
+            className="px-3 py-2 border border-black rounded-lg text-sm text-black md:col-span-2"
             required
           />
           <button

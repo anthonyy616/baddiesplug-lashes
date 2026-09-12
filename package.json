@@ -32,6 +32,8 @@
     "drizzle-orm": "^0.45.2",
     "eslint-plugin-boundaries": "^7.2.0",
     "inngest": "^4.20.0",
+    "lucide-react": "^1.45.0",
+    "motion": "^13.2.0",
     "next": "^16.3.4",
     "next-auth": "^5.0.0-beta.32",
     "postgres": "^3.4.9",

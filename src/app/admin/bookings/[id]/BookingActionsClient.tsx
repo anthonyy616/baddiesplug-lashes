@@ -115,7 +115,7 @@ export default function BookingActionsClient({ bookingId, status }: BookingActio
                     type="date"
                     value={rescheduleDate}
                     onChange={(e) => setRescheduleDate(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                    className="w-full px-3 py-2 border border-black rounded-lg text-sm text-black"
                   />
                 </div>
                 <div>
@@ -124,7 +124,7 @@ export default function BookingActionsClient({ bookingId, status }: BookingActio
                     type="time"
                     value={rescheduleStart}
                     onChange={(e) => setRescheduleStart(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                    className="w-full px-3 py-2 border border-black rounded-lg text-sm text-black"
                   />
                 </div>
                 <div>

@@ -87,7 +87,7 @@ export default function PaymentsManager({ recentPayments }: { recentPayments: Pa
             value={form.bookingId}
             onChange={(e) => setForm({ ...form, bookingId: e.target.value })}
             placeholder="From the booking detail page"
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+            className="w-full px-3 py-2 border border-black rounded-lg text-sm text-black"
             required
           />
         </div>
@@ -98,7 +98,7 @@ export default function PaymentsManager({ recentPayments }: { recentPayments: Pa
             step="0.01"
             value={form.amountNaira}
             onChange={(e) => setForm({ ...form, amountNaira: e.target.value })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+            className="w-full px-3 py-2 border border-black rounded-lg text-sm text-black"
             required
           />
         </div>
@@ -119,7 +119,7 @@ export default function PaymentsManager({ recentPayments }: { recentPayments: Pa
           <input
             value={form.note}
             onChange={(e) => setForm({ ...form, note: e.target.value })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+            className="w-full px-3 py-2 border border-black rounded-lg text-sm text-black"
           />
         </div>
         <button

@@ -24,6 +24,26 @@ export interface ProcessedImage {
 
 const EXPORTED_MIME = 'image/webp' as const;
 
+/** Named quality presets — admin uploads pick one per media type. */
+export type ImagePreset = 'service' | 'hero' | 'editorial' | 'gallery';
+
+const PRESETS: Record<ImagePreset, { maxDimension: number; quality: number }> = {
+  // Catalog thumbnails: small and fast.
+  service: { maxDimension: 1600, quality: 80 },
+  // Full-bleed editorial imagery: retina-ready, near-lossless look.
+  hero: { maxDimension: 2560, quality: 90 },
+  editorial: { maxDimension: 2560, quality: 90 },
+  // Work gallery: high quality, slightly lighter than hero.
+  gallery: { maxDimension: 2000, quality: 85 },
+};
+
+export function getImagePreset(preset: ImagePreset): {
+  maxDimension: number;
+  quality: number;
+} {
+  return PRESETS[preset];
+}
+
 /**
  * Decode + normalize an uploaded image into a compressed WebP.
  * Throws if the bytes are not a decodable image — callers should treat that

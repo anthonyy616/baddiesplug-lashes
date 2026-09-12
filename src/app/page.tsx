@@ -1,136 +1,72 @@
-import Link from 'next/link';
-import SiteNav from '@/components/SiteNav';
+import type { Metadata } from 'next';
+import LuxuryNavbar from '@/components/home/LuxuryNavbar';
+import Hero from '@/components/home/Hero';
+import BrandMarquee from '@/components/home/BrandMarquee';
+import FeaturedServices from '@/components/home/FeaturedServices';
+import BrandStatement from '@/components/home/BrandStatement';
+import WorkGallery from '@/components/home/WorkGallery';
+import BookingCTA from '@/components/home/BookingCTA';
+import LocationSection from '@/components/home/LocationSection';
+import LuxuryFooter from '@/components/home/LuxuryFooter';
+import { MotionProvider } from '@/components/home/MotionProvider';
+import { SITE_URL } from '@/components/home/site';
+import {
+  getHeroImage,
+  getEditorialImage,
+  getGalleryImages,
+} from '@/components/home/home-media';
 
-export default function HomePage() {
+// Services are queried from the DB at request time so admin changes show
+// immediately (same as /services).
+export const dynamic = 'force-dynamic';
+
+export const metadata: Metadata = {
+  title: 'The Baddies Plug | Luxury Lash & Brow Studio — Lagos',
+  description:
+    'Book luxury lash extensions and brow services at The Baddies Plug, Lagos. Classic, hybrid and volume sets by specialists. Your eyes. Your look. Your era.',
+  alternates: { canonical: SITE_URL },
+  openGraph: {
+    title: 'The Baddies Plug | Luxury Lash & Brow Studio',
+    description:
+      'Lashes made for the baddie in you. Book your appointment — classic, hybrid and volume sets in Lagos.',
+    url: SITE_URL,
+    type: 'website',
+  },
+};
+
+/**
+ * v2 luxury homepage. Composition only — every section is its own component
+ * (§47); only interaction-dependent pieces are client components (§48).
+ * The SilkBackground hero keeps its signature dark treatment in both color
+ * schemes; sections below the marquee are theme-aware (warm-white light /
+ * deep-wine dark) via dark: variants.
+ *
+ * Imagery is admin-managed (DB) with static-key fallbacks: hero/editorial
+ * come from homepage_media (uploaded at /admin/homepage), gallery from
+ * gallery_images, and featured services respect the admin's isFeatured flag.
+ */
+export default async function HomePage() {
+  const [hero, editorial, gallery] = await Promise.all([
+    getHeroImage(),
+    getEditorialImage(),
+    getGalleryImages(),
+  ]);
+
   return (
-    <div className="min-h-screen bg-white dark:bg-black">
-      {/* Navigation */}
-      <SiteNav />
-
-      {/* Hero Section */}
-      <section className="relative min-h-screen flex items-center justify-center pt-16">
-        <div className="absolute inset-0 bg-gradient-to-b from-burgundy/5 to-transparent" />
-        <div className="relative z-10 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h1 className="text-5xl md:text-7xl font-bold text-gray-900 dark:text-white mb-6 animate-fade-in">
-            Elevate Your Beauty
-          </h1>
-          <p className="text-xl md:text-2xl text-gray-600 dark:text-gray-400 mb-10 max-w-2xl mx-auto">
-            Premium lash extensions & eyebrow services tailored to enhance your natural beauty
-          </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link
-              href="/services"
-              className="bg-burgundy text-white px-8 py-4 rounded-lg font-semibold hover:bg-burgundy/90 transition-all hover:scale-105"
-            >
-              Explore Services
-            </Link>
-            <Link
-              href="/booking"
-              className="border-2 border-burgundy text-burgundy px-8 py-4 rounded-lg font-semibold hover:bg-burgundy hover:text-white transition-all hover:scale-105"
-            >
-              Book Appointment
-            </Link>
-          </div>
-        </div>
-        {/* Decorative elements */}
-        <div className="absolute top-20 left-10 w-32 h-32 bg-burgundy/10 rounded-full blur-3xl" />
-        <div className="absolute bottom-20 right-10 w-48 h-48 bg-burgundy/10 rounded-full blur-3xl" />
-      </section>
-
-      {/* Features Section */}
-      <section className="py-20 bg-gray-50 dark:bg-gray-900">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white mb-4">
-              Why Choose The Baddies Plug
-            </h2>
-            <p className="text-gray-600 dark:text-gray-400 max-w-2xl mx-auto">
-              Experience luxury beauty services in a comfortable, professional environment
-            </p>
-          </div>
-          <div className="grid md:grid-cols-3 gap-8">
-            <div className="text-center p-6 bg-white dark:bg-gray-800 rounded-xl shadow-sm hover:shadow-md transition-shadow">
-              <div className="w-16 h-16 bg-burgundy/10 rounded-full flex items-center justify-center mx-auto mb-4">
-                <svg className="w-8 h-8 text-burgundy" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
-                </svg>
-              </div>
-              <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">Luxury Experience</h3>
-              <p className="text-gray-600 dark:text-gray-400">
-                Premium services delivered with care and attention to detail
-              </p>
-            </div>
-            <div className="text-center p-6 bg-white dark:bg-gray-800 rounded-xl shadow-sm hover:shadow-md transition-shadow">
-              <div className="w-16 h-16 bg-burgundy/10 rounded-full flex items-center justify-center mx-auto mb-4">
-                <svg className="w-8 h-8 text-burgundy" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </div>
-              <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">Easy Booking</h3>
-              <p className="text-gray-600 dark:text-gray-400">
-                Simple online booking with flexible scheduling options
-              </p>
-            </div>
-            <div className="text-center p-6 bg-white dark:bg-gray-800 rounded-xl shadow-sm hover:shadow-md transition-shadow">
-              <div className="w-16 h-16 bg-burgundy/10 rounded-full flex items-center justify-center mx-auto mb-4">
-                <svg className="w-8 h-8 text-burgundy" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                </svg>
-              </div>
-              <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">Safe & Secure</h3>
-              <p className="text-gray-600 dark:text-gray-400">
-                Your data and privacy are always protected
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* CTA Section */}
-      <section className="py-20 bg-burgundy">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h2 className="text-3xl md:text-4xl font-bold text-white mb-6">
-            Ready to Transform Your Look?
-          </h2>
-          <p className="text-xl text-white/80 mb-10 max-w-2xl mx-auto">
-            Book your appointment today and experience the difference
-          </p>
-          <Link
-            href="/booking"
-            className="inline-block bg-white text-burgundy px-8 py-4 rounded-lg font-semibold hover:bg-gray-100 transition-colors"
-          >
-            Book Now
-          </Link>
-        </div>
-      </section>
-
-      {/* Footer */}
-      <footer className="py-12 bg-gray-900 dark:bg-black">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col md:flex-row justify-between items-center">
-            <div className="mb-4 md:mb-0">
-              <span className="text-2xl font-bold text-white">The Baddies Plug</span>
-              <p className="text-gray-400 mt-2">
-                Luxury lash & beauty services
-              </p>
-            </div>
-            <div className="flex space-x-6">
-              <Link href="/services" className="text-gray-400 hover:text-white transition-colors">
-                Services
-              </Link>
-              <Link href="/contact" className="text-gray-400 hover:text-white transition-colors">
-                Contact
-              </Link>
-              <Link href="/policies" className="text-gray-400 hover:text-white transition-colors">
-                Policies
-              </Link>
-            </div>
-          </div>
-          <div className="mt-8 pt-8 border-t border-gray-800 text-center text-gray-500">
-            <p>&copy; {new Date().getFullYear()} The Baddies Plug. All rights reserved.</p>
-          </div>
-        </div>
-      </footer>
-    </div>
+    <MotionProvider>
+      <div className="home-page bg-ink-black">
+        <LuxuryNavbar />
+        <main>
+          <Hero media={hero} />
+          <BrandMarquee />
+          <FeaturedServices />
+          <BrandStatement media={editorial} />
+          <WorkGallery images={gallery} />
+          <BookingCTA />
+          <LocationSection />
+        </main>
+        <LuxuryFooter />
+      </div>
+    </MotionProvider>
   );
 }

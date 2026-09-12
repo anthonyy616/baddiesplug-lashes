@@ -171,6 +171,21 @@ export function generateServiceImageKey(serviceId: string, imageId: string): str
 }
 
 /**
+ * Homepage hero/editorial key generator. Fresh UUID per upload so a replaced
+ * image is a new URL — the immutable CDN cache never serves a stale copy.
+ */
+export function generateHomeMediaKey(slot: string, mediaId: string): string {
+  return `home/${slot}/${mediaId}.webp`;
+}
+
+/**
+ * Gallery image key generator (homepage work gallery).
+ */
+export function generateGalleryImageKey(imageId: string): string {
+  return `gallery/${imageId}.webp`;
+}
+
+/**
  * Reference image key generator
  */
 export function generateReferenceImageKey(bookingId: string, imageId: string): string {

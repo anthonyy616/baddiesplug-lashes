@@ -100,7 +100,7 @@ export default function AvailabilityManager({
             type="date"
             value={date}
             onChange={(e) => loadDate(e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
+            className="px-3 py-2 border border-black rounded-lg text-sm text-black"
           />
         </div>
         <p className="text-sm text-gray-500 pb-2">
