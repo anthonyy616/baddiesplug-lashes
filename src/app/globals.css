@@ -359,6 +359,11 @@ body {
     flex-wrap: wrap;
   }
 
+  /* Footer wordmark: keep a single clipped line (no giant stacked rows) */
+  .footer-marquee .marquee-track {
+    flex-wrap: nowrap;
+  }
+
   .service-row-img {
     display: block !important;
     opacity: 1 !important;

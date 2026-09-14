@@ -1,7 +1,6 @@
 import Link from 'next/link';
 import { InstagramIcon, WhatsAppIcon } from './icons';
 import { BRAND, HOURS, LOCATION } from './site';
-
 const NAV_LINKS = [
   { label: 'Services', href: '/services' },
   { label: 'Book', href: '/booking' },
@@ -11,9 +10,13 @@ const NAV_LINKS = [
 
 /**
  * Footer (§34-35): deep-wine panel, warm-white type, columns for navigation /
- * socials / address / hours, finished with an oversized wordmark that
- * intentionally clips against the viewport edge (§34).
+ * socials / address / hours, finished with an oversized wordmark that scrolls
+ * horizontally as a continuous marquee — the same .marquee-track animation
+ * the hero "LASHES ✦ BROWS…" strip uses — so the full "THE BADDIES PLUG"
+ * name passes through the clipped viewport band (§34).
  */
+const WORDMARK_STRIP = Array.from({ length: 3 }, () => 'THE BADDIES PLUG');
+
 export default function LuxuryFooter() {
   const whatsappNumber = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER?.replace(/[^0-9]/g, '') || '';
 
@@ -98,14 +101,32 @@ export default function LuxuryFooter() {
         </div>
       </div>
 
-      {/* Oversized clipped wordmark (§34) */}
-      <div className="select-none overflow-hidden" aria-hidden="true">
-        <p
-          className="font-editorial whitespace-nowrap font-semibold leading-[0.8] tracking-tight text-warm-white/[0.08]"
-          style={{ fontSize: 'clamp(6rem, 18vw, 20rem)', marginBottom: '-0.18em' }}
-        >
-          THE BADDIES PLUG
-        </p>
+      {/* Oversized clipped wordmark (§34) — continuous horizontal scroll,
+          mirroring the BrandMarquee treatment. Two identical strips make the
+          -50% keyframe loop seamless; duplicated strip is aria-hidden. */}
+      <div className="footer-marquee select-none overflow-hidden" aria-hidden="true">
+        <div className="marquee-track">
+          {[0, 1].map((stripIdx) => (
+            <div key={stripIdx} className="flex shrink-0 items-center">
+              {WORDMARK_STRIP.map((word, i) => (
+                <span key={i} className="flex items-center">
+                  <span
+                    className="font-editorial whitespace-nowrap px-6 font-semibold leading-[0.8] tracking-tight text-warm-white/[0.08] md:px-10"
+                    style={{ fontSize: 'clamp(5rem, 18vw, 20rem)', marginBottom: '-0.18em' }}
+                  >
+                    {word}
+                  </span>
+                  <span
+                    className="text-rose-muted/20"
+                    style={{ fontSize: 'clamp(2rem, 6vw, 6rem)' }}
+                  >
+                    ✦
+                  </span>
+                </span>
+              ))}
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* Legal line */}
