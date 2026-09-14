@@ -52,11 +52,11 @@
     "@types/react-dom": "^19.2.7",
     "@types/uuid": "^10.0.0",
     "autoprefixer": "^10.5.5",
-    "drizzle-kit": "^0.31.10",
+    "drizzle-kit": "^0.18.1",
     "eslint": "^9.39.5",
     "eslint-config-next": "^16.3.4",
     "tsx": "^4.23.13",
     "typescript": "^6.0.3",
-    "vitest": "^3.2.7"
+    "vitest": "^5.0.0"
   }
 }
