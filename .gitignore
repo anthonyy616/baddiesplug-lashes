@@ -45,3 +45,5 @@ personal/*
 docs/*
 # Sentry Config File
 .env.sentry-build-plugin
+
+db/schema.sql
