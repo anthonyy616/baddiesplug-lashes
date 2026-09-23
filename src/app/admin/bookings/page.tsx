@@ -68,20 +68,20 @@ export default async function AdminBookingsPage({ searchParams }: PageProps) {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Bookings</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Bookings</h1>
           <p className="text-gray-600">Manage all appointments</p>
         </div>
 
         <div className="flex gap-4">
           {/* Search */}
-          <form action="" className="relative">
+          <form action="" className="relative w-full sm:w-72">
             <input
               type="text"
               name="search"
               placeholder="Search by reference or customer..."
-              className="pl-10 pr-4 py-2 border border-black rounded-lg text-black focus:outline-none focus:ring-2 focus:ring-burgundy"
+              className="w-full pl-10 pr-4 py-2 border border-black rounded-lg text-black focus:outline-none focus:ring-2 focus:ring-burgundy"
             />
             <svg className="w-5 h-5 text-gray-400 absolute left-3 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -90,8 +90,8 @@ export default async function AdminBookingsPage({ searchParams }: PageProps) {
         </div>
       </div>
 
-      {/* Status Tabs */}
-      <div className="flex gap-1 bg-white rounded-lg border border-gray-200 p-1">
+      {/* Status Tabs — horizontally scrollable on mobile */}
+      <div className="flex gap-1 bg-white rounded-lg border border-gray-200 p-1 overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-1">
         <Link
           href={`/admin/bookings?status=all`}
           className={`px-4 py-2 rounded-md text-sm font-medium ${
@@ -158,8 +158,22 @@ export default async function AdminBookingsPage({ searchParams }: PageProps) {
         </Link>
       </div>
 
-      {/* Bookings List */}
-      <div className="bg-white rounded-lg shadow overflow-hidden">
+      {/* Bookings List — cards on mobile, table on desktop */}
+      {/* Mobile card list */}
+      <div className="md:hidden space-y-3">
+        {filteredBookings.length === 0 ? (
+          <div className="bg-white rounded-lg shadow p-8 text-center text-gray-500">
+            No bookings found
+          </div>
+        ) : (
+          filteredBookings.map((booking: any) => (
+            <BookingCard key={booking.id} booking={booking} />
+          ))
+        )}
+      </div>
+
+      {/* Desktop table */}
+      <div className="hidden md:block bg-white rounded-lg shadow overflow-hidden">
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
@@ -207,8 +221,8 @@ export default async function AdminBookingsPage({ searchParams }: PageProps) {
   );
 }
 
-function BookingRow({ booking }: { booking: any }) {
-  const statusColors: Record<string, string> = {
+function getStatusColors(): Record<string, string> {
+  return {
     pending: 'bg-amber-100 text-amber-800',
     confirmed: 'bg-green-100 text-green-800',
     cancelled: 'bg-red-100 text-red-800',
@@ -216,6 +230,40 @@ function BookingRow({ booking }: { booking: any }) {
     completed: 'bg-blue-100 text-blue-800',
     no_show: 'bg-gray-100 text-gray-800',
   };
+}
+
+/** Mobile card view for a single booking (<md). */
+function BookingCard({ booking }: { booking: any }) {
+  const colors = getStatusColors();
+  return (
+    <div className="bg-white rounded-lg shadow p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <Link href={`/admin/bookings/${booking.id}`} className="font-medium text-burgundy hover:text-burgundy/80">
+            {booking.reference}
+          </Link>
+          <p className="text-sm text-gray-900 truncate">{booking.customerName || 'Unknown'}</p>
+          <p className="text-sm text-gray-500">{booking.phone}</p>
+        </div>
+        <span className={`px-2 py-1 text-xs font-semibold rounded-full whitespace-nowrap ${colors[booking.status] || 'bg-gray-100 text-gray-800'}`}>
+          {booking.status.replace('_', ' ')}
+        </span>
+      </div>
+      <div className="mt-3 flex items-center justify-between text-sm">
+        <span className="text-gray-600">
+          {formatLagosTime(new Date(booking.appointmentDate + 'T00:00:00'), 'MMM d, yyyy')} · {booking.startTime}–{booking.endTime}
+        </span>
+        <span className="font-medium text-gray-900">₦{(booking.total / 100).toFixed(2)}</span>
+      </div>
+      <div className="mt-3 pt-3 border-t border-gray-100">
+        <BookingActions booking={booking} />
+      </div>
+    </div>
+  );
+}
+
+function BookingRow({ booking }: { booking: any }) {
+  const statusColors: Record<string, string> = getStatusColors();
 
   return (
     <tr className="hover:bg-gray-50">

@@ -43,7 +43,7 @@ export default function NotificationsList({ items: initialItems }: { items: Noti
         <button
           onClick={() => markRead(undefined, true)}
           disabled={busy || unreadCount === 0}
-          className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg text-sm hover:bg-gray-300 disabled:opacity-50"
+          className="w-full sm:w-auto px-4 py-2 bg-gray-200 text-gray-700 rounded-lg text-sm hover:bg-gray-300 disabled:opacity-50"
         >
           Mark all read ({unreadCount})
         </button>
@@ -54,7 +54,7 @@ export default function NotificationsList({ items: initialItems }: { items: Noti
           <div className="px-4 py-8 text-center text-gray-500 text-sm">No notifications</div>
         )}
         {items.map((n) => (
-          <div key={n.id} className={`p-4 flex items-start justify-between gap-4 ${n.isRead ? 'opacity-60' : ''}`}>
+          <div key={n.id} className={`p-4 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 ${n.isRead ? 'opacity-60' : ''}`}>
             <div className="min-w-0">
               <div className="flex items-center gap-2">
                 {!n.isRead && <span className="w-2 h-2 bg-burgundy rounded-full flex-shrink-0" />}

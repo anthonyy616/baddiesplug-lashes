@@ -37,22 +37,47 @@ export default async function AdminCustomerHistoryPage({
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">{customer.name}</h1>
-          <p className="text-gray-600">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">{customer.name}</h1>
+          <p className="text-gray-600 break-words">
             {customer.email} · {customer.phone || 'No phone on file'}
           </p>
         </div>
         <Link
           href="/admin/customers"
-          className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 text-sm"
+          className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 text-sm text-center"
         >
           Back
         </Link>
       </div>
 
-      <div className="bg-white rounded-lg shadow overflow-hidden">
+      {/* Mobile card list */}
+      <div className="md:hidden space-y-3">
+        <h2 className="font-semibold text-gray-900">Appointment History ({history.length})</h2>
+        {history.length === 0 && (
+          <div className="bg-white rounded-lg shadow p-6 text-center text-gray-500 text-sm">No bookings</div>
+        )}
+        {history.map((b) => (
+          <div key={b.id} className="bg-white rounded-lg shadow p-4">
+            <div className="flex items-start justify-between gap-2">
+              <Link href={`/admin/bookings/${b.id}`} className="font-mono text-sm text-burgundy hover:underline">
+                {b.reference}
+              </Link>
+              <span className={`px-2 py-1 text-xs rounded-full font-medium whitespace-nowrap ${statusColors[b.status] || 'bg-gray-100 text-gray-800'}`}>
+                {b.status.replace('_', ' ')}
+              </span>
+            </div>
+            <div className="mt-2 flex items-center justify-between text-sm">
+              <span className="text-gray-600">{b.appointmentDate} · {b.startTime}–{b.endTime}</span>
+              <span className="font-medium">₦{(b.total / 100).toFixed(2)}</span>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Desktop table */}
+      <div className="hidden md:block bg-white rounded-lg shadow overflow-hidden">
         <div className="px-4 py-3 border-b border-gray-200">
           <h2 className="font-semibold text-gray-900">Full Appointment History ({history.length})</h2>
         </div>

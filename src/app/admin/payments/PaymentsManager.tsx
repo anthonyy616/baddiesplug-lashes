@@ -125,13 +125,37 @@ export default function PaymentsManager({ recentPayments }: { recentPayments: Pa
         <button
           type="submit"
           disabled={isSubmitting}
-          className="px-4 py-2 bg-burgundy text-white rounded-lg text-sm font-medium disabled:opacity-50"
+          className="w-full sm:w-auto px-4 py-2 bg-burgundy text-white rounded-lg text-sm font-medium disabled:opacity-50"
         >
           {isSubmitting ? 'Saving...' : 'Record Payment'}
         </button>
       </form>
 
-      <div className="bg-white rounded-lg shadow overflow-hidden">
+      {/* Mobile card list */}
+      <div className="md:hidden">
+        <h2 className="font-semibold text-gray-900 mb-3">Recent Payments</h2>
+        <div className="space-y-3">
+          {payments.length === 0 && (
+            <div className="bg-white rounded-lg shadow p-6 text-center text-gray-500 text-sm">No payments recorded yet</div>
+          )}
+          {payments.map((p) => (
+            <div key={p.id} className="bg-white rounded-lg shadow p-4">
+              <div className="flex items-center justify-between">
+                <span className="font-mono text-sm">{p.bookingReference}</span>
+                <span className="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-800 capitalize">{p.paymentType}</span>
+              </div>
+              <div className="mt-2 flex items-center justify-between text-sm">
+                <span className="text-gray-600">{p.createdAt}</span>
+                <span className="font-medium">₦{(p.amount / 100).toFixed(2)}</span>
+              </div>
+              {p.note && <p className="mt-2 text-sm text-gray-500">{p.note}</p>}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Desktop table */}
+      <div className="hidden md:block bg-white rounded-lg shadow overflow-hidden">
         <div className="px-4 py-3 border-b border-gray-200">
           <h2 className="font-semibold text-gray-900">Recent Payments</h2>
         </div>

@@ -14,6 +14,9 @@ Usage:
 
 If admin args are omitted, only the catalog (services/add-ons) is seeded.
 "username" is what you type at /admin/login — it is not an email.
+
+The catalog below mirrors the official price list (db/pricelist-update.sql
+performs the equivalent in-place migration for existing databases).
 */
 
 function parseAdminArgs() {
@@ -42,177 +45,152 @@ if (!adminUsername && adminPassword) {
   process.exit(1);
 }
 
-// Sample Lash Services
+// Official lash services — prices in NGN kobo (naira × 100):
+// ₦35,500 → 3550000. The app displays price / 100 as naira.
 const lashServices = [
   {
-    name: 'Classic Lash Extensions',
+    name: 'The Soft Baddie (Hybrid Set)',
     slug: 'classic-lash-extensions',
-    description: 'Natural-looking eyelash extensions that enhance your own lashes.',
-    notes: 'Individual lashes applied to natural lashes. Full set includes 80-120 lashes.',
-    price: 35000, // ₦35,000 in kobo
+    description:
+      'A fuller, textured set that sits beautifully between natural and dramatic. A combination of lightweight individual extensions and volume fans creates soft density, definition and dimension.',
+    notes:
+      'Perfect for: the girl who wants noticeable lashes without going all the way dramatic. Finish: Soft • Textured • Defined. All sets are customized to your natural lash health and eye shape.',
+    price: 3550000, // ₦35,500
     durationMinutes: 120,
     category: 'lash',
     displayOrder: 1,
   },
   {
-    name: 'Volume Lash Extensions',
+    name: 'I Am Baddie Full (Volume Set)',
     slug: 'volume-lash-extensions',
-    description: 'Dramatic, voluminous lashes made with handmade volume wisps.',
-    notes: 'Multiple finer lashes fanned together for a fuller look. Full set includes 40-60 volume wisps.',
-    price: 50000, // ₦50,000 in kobo
+    description:
+      'Fuller, darker and more dimensional than The Soft Baddie. This set creates a rich, fluffy lash line with significantly more density while keeping the finish lightweight and beautifully balanced.',
+    notes:
+      'Perfect for: the girl who wants her lashes to be part of the look. Finish: Full • Fluffy • Glamorous. All sets are customized to your natural lash health and eye shape.',
+    price: 4620000, // ₦46,200
     durationMinutes: 120,
     category: 'lash',
     displayOrder: 2,
   },
   {
-    name: 'Hybrid Lash Extensions',
+    name: 'Baddie Extra (Mega Volume Set)',
     slug: 'hybrid-lash-extensions',
-    description: 'Combination of classic and volume lashes for dimension and fullness.',
-    notes: 'Classic and volume lashes combined for a customized look. Full set includes 50-80 lashes.',
-    price: 45000, // ₦45,000 in kobo
+    description:
+      'Our fullest lash experience. Designed for maximum density, depth and drama, with carefully crafted fans tailored to your natural lashes and eye shape.',
+    notes:
+      'Perfect for: the girl who wants bold, unapologetic, statement lashes. Finish: Dense • Dramatic • Unmissable. All sets are customized to your natural lash health and eye shape.',
+    price: 5510000, // ₦55,100
     durationMinutes: 120,
     category: 'lash',
     displayOrder: 3,
-  },
-  {
-    name: 'Lash Lift & Tint',
-    slug: 'lash-lift-tint',
-    description: 'Lift and tint your natural lashes for a no-makeup look.',
-    notes: 'Chemical process that curls natural lashes. Lasts 6-8 weeks. Includes lash tint.',
-    price: 25000, // ₦25,000 in kobo
-    durationMinutes: 60,
-    category: 'lash',
-    displayOrder: 4,
-  },
-  {
-    name: 'Lash Lift Only',
-    slug: 'lash-lift-only',
-    description: 'Chemical curl for natural lashes without tint.',
-    notes: 'Curling treatment for natural lashes. Lasts 6-8 weeks.',
-    price: 20000, // ₦20,000 in kobo
-    durationMinutes: 45,
-    category: 'lash',
-    displayOrder: 5,
-  },
-  {
-    name: 'Lash Tint Only',
-    slug: 'lash-tint-only',
-    description: 'Darken your natural lashes with a semi-permanent tint.',
-    notes: 'Semi-permanent dye for natural lashes. Lasts 3-4 weeks.',
-    price: 15000, // ₦15,000 in kobo
-    durationMinutes: 30,
-    category: 'lash',
-    displayOrder: 6,
   },
 ];
 
-// Sample Eyebrow Services
+// Official brow services — prices in NGN kobo (naira × 100).
 const eyebrowServicesSeed = [
-  {
-    name: 'Brow Shape & Trim',
-    slug: 'brow-shape-trim',
-    description: 'Professional eyebrow shaping and trimming.',
-    notes: 'Includes consultation, shaping according to face shape, and light trim.',
-    price: 10000, // ₦10,000 in kobo
-    durationMinutes: 30,
-    category: 'eyebrow',
-    displayOrder: 1,
-  },
-  {
-    name: 'Microblading (First Session)',
-    slug: 'microblading-first-session',
-    description: 'Semi-permanent eyebrow tattooing for natural-looking brows.',
-    notes: 'First of two sessions. Includes consultation and design. Touch-up session required after 4-6 weeks.',
-    price: 150000, // ₦150,000 in kobo
-    durationMinutes: 120,
-    category: 'eyebrow',
-    displayOrder: 2,
-  },
-  {
-    name: 'Microblading Touch-Up',
-    slug: 'microblading-touch-up',
-    description: 'Follow-up session for microblading to perfect results.',
-    notes: 'Second session to perfect and enhance initial microblading work.',
-    price: 50000, // ₦50,000 in kobo
-    durationMinutes: 60,
-    category: 'eyebrow',
-    displayOrder: 3,
-  },
   {
     name: 'Brow Lamination',
     slug: 'brow-lamination',
-    description: 'Chemical process to set brows in an upward, fluffy position.',
-    notes: 'Includes brow soap for daily grooming. Lasts 4-6 weeks.',
-    price: 20000, // ₦20,000 in kobo
+    description:
+      'A brow-smoothing treatment that restructures and sets your natural brow hairs into a fuller, lifted and more defined shape — that brushed-up, fluffy brow look, polished and intentional.',
+    notes:
+      'Included: brow cleansing, styling, lamination treatment, nourishing finish & aftercare guidance. Finish: Lifted • Fluffy • Defined.',
+    price: 1500000, // ₦15,000
     durationMinutes: 45,
     category: 'eyebrow',
-    displayOrder: 4,
+    displayOrder: 1,
   },
   {
     name: 'Brow Tint',
     slug: 'brow-tint',
-    description: 'Semi-permanent dye to darken eyebrow hair.',
-    notes: 'Lasts 3-4 weeks. Great for those with light brows.',
-    price: 10000, // ₦10,000 in kobo
+    description:
+      'A semi-permanent henna tint that enhances the colour and definition of your brows while creating a fuller-looking appearance. Ideal for adding depth to sparse or lighter brows.',
+    notes:
+      'Included: brow cleansing, basic brow preparation, customised henna tint application & aftercare guidance. Finish: Defined • Fuller-looking • Sculpted.',
+    price: 1000000, // ₦10,000
     durationMinutes: 20,
+    category: 'eyebrow',
+    displayOrder: 2,
+  },
+  {
+    name: 'Brow Wax',
+    slug: 'brow-wax',
+    description:
+      'A quick brow clean-up using wax to remove unwanted hair around the brow area and sharpen your existing brow shape.',
+    notes:
+      'Included: brow preparation, wax clean-up, stray hair removal & soothing finish. Finish: Clean • Neat • Polished.',
+    price: 500000, // ₦5,000
+    durationMinutes: 15,
+    category: 'eyebrow',
+    displayOrder: 3,
+  },
+  {
+    name: 'Brow Shaping',
+    slug: 'brow-shape-trim',
+    description:
+      'A simple brow grooming service using a razor to remove stray hairs and refine the shape of your natural brows.',
+    notes:
+      'Included: brow assessment, razor shaping, stray hair removal & final grooming. Finish: Clean • Refined • Natural.',
+    price: 200000, // ₦2,000
+    durationMinutes: 15,
+    category: 'eyebrow',
+    displayOrder: 4,
+  },
+  {
+    name: 'The Brow Duo (Lamination + Tint)',
+    slug: 'the-brow-duo',
+    description:
+      'The perfect pairing for fuller, lifted and more defined brows. Brow lamination creates the shape and lift, while our henna tint adds depth and definition. Save ₦5,000 when you book the combo.',
+    notes:
+      'Included: brow cleansing, brow preparation, lamination, customised henna tint, nourishing finish & aftercare guidance. Finish: Lifted • Fuller-looking • Defined.',
+    price: 2000000, // ₦20,000
+    durationMinutes: 60,
     category: 'eyebrow',
     displayOrder: 5,
   },
-  {
-    name: 'Brow Artistry',
-    slug: 'brow-artistry',
-    description: 'Hand-drawn strokes to create fuller, perfectly shaped brows.',
-    notes: 'Individual strokes drawn with a needle. Lasts 1-2 years.',
-    price: 80000, // ₦80,000 in kobo
-    durationMinutes: 120,
-    category: 'eyebrow',
-    displayOrder: 6,
-  },
 ];
 
-// Sample Add-ons
+// Official add-ons (extras) — prices in NGN kobo (naira × 100).
 const addonsSeed = [
   {
-    name: 'LED Under Eye Treatment',
-    description: 'LED light therapy to reduce puffiness and dark circles.',
-    price: 5000,
+    name: 'Lash Refill — The Soft Baddie (Hybrid)',
+    description:
+      'Two-week maintenance appointment to refresh your existing Soft Baddie set, replacing lashes that have naturally shed and restoring fullness and definition. Recommended every 2 weeks. Applies to existing Baddies Plug sets suitable for a refill.',
+    price: 1900000, // ₦19,000
     isActive: true,
     displayOrder: 1,
   },
   {
-    name: 'Lash Lift Add-On',
-    description: 'Add a lash lift to your lash extension appointment.',
-    price: 10000,
+    name: 'Lash Refill — I Am Baddie Full (Volume)',
+    description:
+      'Two-week maintenance appointment to restore the fullness, density and shape of your existing I Am Baddie Full set. Recommended every 2 weeks. Applies to existing Baddies Plug sets suitable for a refill.',
+    price: 2500000, // ₦25,000
     isActive: true,
     displayOrder: 2,
   },
   {
-    name: 'Brow Lamination Add-On',
-    description: 'Add brow lamination to your brow service.',
-    price: 8000,
+    name: 'Lash Refill — Baddie Extra (Mega Volume)',
+    description:
+      'Two-week maintenance appointment to restore the maximum fullness and density of your existing Baddie Extra set. Recommended every 2 weeks. If too much of the original set has shed, a new full set may be required.',
+    price: 3000000, // ₦30,000
     isActive: true,
     displayOrder: 3,
   },
   {
-    name: 'Lash Tint Add-On',
-    description: 'Add lash tint to any lash service.',
-    price: 5000,
+    name: 'Lash Removal',
+    description:
+      'Professional removal of existing lash extensions using a gentle removal process designed to protect your natural lashes. Removal of another lash artist\'s work may be required before a new set can be applied.',
+    price: 500000, // ₦5,000
     isActive: true,
     displayOrder: 4,
   },
   {
-    name: 'Brow Tint Add-On',
-    description: 'Add brow tint to any brow service.',
-    price: 5000,
+    name: 'Bottom Lashes',
+    description:
+      'Customised bottom lash extensions for extra definition. Price shown is for the full (dramatic) option; subtle options are available in-salon.',
+    price: 1500000, // ₦15,000
     isActive: true,
     displayOrder: 5,
-  },
-  {
-    name: 'Under Eye Brightening',
-    description: 'Concealer application and brightening treatment.',
-    price: 3000,
-    isActive: true,
-    displayOrder: 6,
   },
 ];
 
@@ -262,9 +240,24 @@ async function seed() {
           displayOrder: service.displayOrder,
         });
         serviceCount++;
+      } else {
+        // Existing databases are migrated in place by db/pricelist-update.sql;
+        // here we only keep an existing row's copy current if it drifted.
+        await db
+          .update(services)
+          .set({
+            name: service.name,
+            description: service.description,
+            notes: service.notes,
+            price: service.price,
+            durationMinutes: service.durationMinutes,
+            displayOrder: service.displayOrder,
+            updatedAt: new Date(),
+          })
+          .where(eq(services.slug, service.slug));
       }
     }
-    console.log(`✓ ${serviceCount} services created\n`);
+    console.log(`✓ ${serviceCount} services created, ${[...lashServices, ...eyebrowServicesSeed].length - serviceCount} synced\n`);
 
     // --- Add-ons ---
     console.log('Creating add-ons...');

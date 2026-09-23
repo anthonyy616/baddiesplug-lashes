@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState, useEffect, useCallback } from 'react';
+import { pickPrefetchDates } from '@/lib/booking-calendar';
 
 export interface SlotInfo {
   date: string;
@@ -51,28 +52,41 @@ export default function DateTimePicker({
     setLoadingDate(date);
     try {
       const res = await fetch(`/api/availability?date=${date}`);
+      if (!res.ok) {
+        // Don't cache a failure as "empty" — leave this date unfetched so a
+        // retry can happen. Server errors now return 500 (see API route).
+        console.error(`Availability fetch failed for ${date}: HTTP ${res.status}`);
+        return;
+      }
       const data = await res.json();
       setSlotsByDate((prev) => ({ ...prev, [date]: data.slots || [] }));
-    } catch {
-      setSlotsByDate((prev) => ({ ...prev, [date]: [] }));
+    } catch (err) {
+      console.error(`Availability fetch error for ${date}:`, err);
     } finally {
       setLoadingDate(null);
     }
   }, [slotsByDate, loadingDate]);
 
-  // Fetch availability for all in-month bookable days when the view changes
+  // Fetch availability for all in-month bookable days when the view changes.
+  // Selection logic lives in pickPrefetchDates (src/lib/booking-calendar.ts)
+  // so it stays unit-testable — see the regression note there.
   useEffect(() => {
     const days = buildMonthDays(viewYear, viewMonth);
-    const tuesdays = days.filter((d) => {
-      const day = d.getDay();
-      return day >= 2 && day <= 5;
-    });
-    // Cap: fetch first 12 business days of the visible month
-    for (const d of tuesdays.slice(0, 12)) {
-      void fetchSlots(toLocalDateStr(d));
+    for (const dateStr of pickPrefetchDates(
+      days.map((d) => ({ dateStr: toLocalDateStr(d), dayOfWeek: d.getDay() })),
+      today,
+    )) {
+      void fetchSlots(dateStr);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [viewYear, viewMonth]);
+  }, [viewYear, viewMonth, today]);
+
+  // Always ensure the selected date's slots are loaded (covers dates outside
+  // the pre-fetched cap and dates selected before the month fetch completes).
+  useEffect(() => {
+    if (selectedDate) void fetchSlots(selectedDate);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedDate]);
 
   const prevMonth = () => {
     const d = new Date(viewYear, viewMonth - 1, 1);
