@@ -90,7 +90,7 @@ export default function AvailabilityManager({
         <div className="p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm">{error}</div>
       )}
 
-      <div className="bg-white rounded-lg shadow p-4 flex items-end gap-4">
+      <div className="bg-white rounded-lg shadow p-4 flex flex-col sm:flex-row sm:items-end gap-4">
         <div>
           <label htmlFor="date" className="block text-sm font-medium text-gray-700 mb-1">
             Date
@@ -103,7 +103,7 @@ export default function AvailabilityManager({
             className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
           />
         </div>
-        <p className="text-sm text-gray-500 pb-2">
+        <p className="text-sm text-gray-500">
           Overrides apply to this date only. Blocking hides the slot from customers; opening makes a
           normally closed day bookable.
         </p>

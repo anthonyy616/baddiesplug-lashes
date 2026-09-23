@@ -27,7 +27,32 @@ export default async function AdminCustomersPage() {
         <p className="text-gray-600">Full appointment history is available per customer</p>
       </div>
 
-      <div className="bg-white rounded-lg shadow overflow-hidden">
+      {/* Mobile card list */}
+      <div className="md:hidden space-y-3">
+        {customers.length === 0 && (
+          <div className="bg-white rounded-lg shadow p-6 text-center text-gray-500 text-sm">No customers yet</div>
+        )}
+        {customers.map((c) => (
+          <div key={c.id} className="bg-white rounded-lg shadow p-4">
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <p className="font-medium text-gray-900">{c.name}</p>
+                <p className="text-xs text-gray-500 truncate">{c.email}</p>
+              </div>
+              <a href={`/admin/customers/${c.id}`} className="text-sm text-burgundy hover:underline whitespace-nowrap">
+                View history
+              </a>
+            </div>
+            <div className="mt-2 flex items-center justify-between text-sm text-gray-600">
+              <span>{c.phone || 'No phone'}</span>
+              <span>{c.bookingCount} booking{c.bookingCount === 1 ? '' : 's'} · {formatLagosTime(new Date(c.createdAt), 'MMM d, yyyy')}</span>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Desktop table */}
+      <div className="hidden md:block bg-white rounded-lg shadow overflow-hidden">
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>

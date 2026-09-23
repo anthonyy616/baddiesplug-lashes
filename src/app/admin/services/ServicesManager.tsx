@@ -137,8 +137,97 @@ const formatPrice = (kobo: number) =>
   const lash = items.filter((s) => s.category === 'lash');
   const brow = items.filter((s) => s.category === 'eyebrow');
 
+  const renderCardList = (title: string, list: ServiceRow[]) => (
+    <div className="lg:hidden space-y-3">
+      <h2 className="font-semibold text-gray-900">{title}</h2>
+      {list.length === 0 && (
+        <div className="bg-white rounded-lg shadow p-6 text-center text-gray-500 text-sm">None yet</div>
+      )}
+      {list.map((s) => (
+        <div key={s.id} className={`bg-white rounded-lg shadow p-4 ${s.isActive ? '' : 'opacity-50'}`}>
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0">
+              <p className="font-medium text-gray-900">{s.name}</p>
+              <p className="text-xs text-gray-500 line-clamp-2 mt-0.5">{s.description}</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setExpandedId(expandedId === s.id ? null : s.id)}
+              className="text-xs text-burgundy hover:underline whitespace-nowrap"
+              aria-expanded={expandedId === s.id}
+            >
+              {expandedId === s.id ? 'Hide' : 'Images'}
+              {s.images?.length !== undefined ? ` (${s.images.length})` : ''}
+            </button>
+          </div>
+
+          <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
+            <label className="block">
+              <span className="text-xs text-gray-500">Price (₦)</span>
+              <input
+                type="number"
+                defaultValue={s.price / 100}
+                className="mt-1 w-full px-2 py-1.5 border border-gray-300 rounded text-sm"
+                onBlur={(e) => {
+                  const naira = parseFloat(e.target.value);
+                  if (!Number.isNaN(naira) && naira * 100 !== s.price) {
+                    patch(s.id, { price: Math.round(naira * 100) });
+                  }
+                }}
+              />
+            </label>
+            <label className="block">
+              <span className="text-xs text-gray-500">Order</span>
+              <div className="mt-1 flex gap-1">
+                <button onClick={() => move(s, -1)} className="px-3 border rounded hover:bg-gray-50">↑</button>
+                <button onClick={() => move(s, 1)} className="px-3 border rounded hover:bg-gray-50">↓</button>
+                <span className="px-2 py-1.5 text-gray-600">{s.displayOrder}</span>
+              </div>
+            </label>
+          </div>
+
+          <div className="mt-3 flex items-center justify-between">
+            <span className="text-sm text-gray-600">{s.durationMinutes} min · {formatPrice(s.price)}</span>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => patch(s.id, { isActive: !s.isActive })}
+                disabled={busyId === s.id}
+                className={`px-2 py-1 text-xs rounded-full font-medium ${
+                  s.isActive ? 'bg-green-100 text-green-800' : 'bg-gray-200 text-gray-600'
+                }`}
+              >
+                {s.isActive ? 'Active' : 'Inactive'}
+              </button>
+              <button
+                onClick={() => remove(s.id)}
+                disabled={busyId === s.id}
+                className="text-sm text-red-600 hover:text-red-800"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+
+          {expandedId === s.id && (
+            <div className="mt-4 pt-4 border-t border-gray-100">
+              <ServiceImageUploader
+                serviceId={s.id}
+                serviceName={s.name}
+                images={s.images ?? []}
+                onImagesChange={(imgs) => {
+                  setItems((prev) => prev.map((row) => (row.id === s.id ? { ...row, images: imgs } : row)));
+                  fetchImagesFor(s.id);
+                }}
+              />
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+
   const renderTable = (title: string, list: ServiceRow[]) => (
-    <div className="bg-white rounded-lg shadow overflow-hidden">
+    <div className="hidden lg:block bg-white rounded-lg shadow overflow-hidden">
       <div className="px-4 py-3 border-b border-gray-200">
         <h2 className="font-semibold text-gray-900">{title}</h2>
       </div>
@@ -249,7 +338,7 @@ const formatPrice = (kobo: number) =>
       <div className="flex justify-end">
         <button
           onClick={() => setShowForm((v) => !v)}
-          className="px-4 py-2 bg-burgundy text-white rounded-lg hover:bg-burgundy/90 text-sm font-medium"
+          className="w-full sm:w-auto px-4 py-2 bg-burgundy text-white rounded-lg hover:bg-burgundy/90 text-sm font-medium"
         >
           {showForm ? 'Cancel' : '+ Add Service'}
         </button>
@@ -314,6 +403,8 @@ const formatPrice = (kobo: number) =>
         </form>
       )}
 
+      {renderCardList('Lash Services', lash)}
+      {renderCardList('Eyebrow Services', brow)}
       {renderTable('Lash Services', lash)}
       {renderTable('Eyebrow Services', brow)}
     </div>

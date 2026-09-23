@@ -53,11 +53,9 @@ export default async function AnalyticsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Analytics</h1>
-          <p className="text-gray-600">Business metrics and insights</p>
-        </div>
+      <div>
+        <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Analytics</h1>
+        <p className="text-gray-600">Business metrics and insights</p>
       </div>
 
       {/* Key Metrics */}
@@ -105,21 +103,21 @@ export default async function AnalyticsPage() {
             <p className="text-gray-500">No service data available</p>
           ) : (
             bookingsByService.map((service: any, index: number) => (
-              <div key={index} className="flex items-center justify-between py-2">
-                <div className="flex items-center gap-3">
-                  <span className="w-6 text-sm text-gray-500">{index + 1}.</span>
-                  <span className="font-medium">{service.serviceName}</span>
-                </div>
-                <div className="flex items-center gap-4">
-                  <div className="w-32 bg-gray-100 rounded-full h-2">
-                    <div 
-                      className="bg-burgundy h-2 rounded-full" 
-                      style={{ width: `${Math.min((service.percentage) * 100, 100)}%` }}
-                    />
+              <div key={index} className="py-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <span className="w-6 text-sm text-gray-500">{index + 1}.</span>
+                    <span className="font-medium truncate">{service.serviceName}</span>
                   </div>
-                  <span className="text-sm text-gray-600 w-16 text-right">
+                  <span className="text-sm text-gray-600 whitespace-nowrap">
                     {service.count} bookings ({service.percentage.toFixed(0)}%)
                   </span>
+                </div>
+                <div className="mt-1.5 ml-9 bg-gray-100 rounded-full h-2">
+                  <div
+                    className="bg-burgundy h-2 rounded-full"
+                    style={{ width: `${Math.min((service.percentage) * 100, 100)}%` }}
+                  />
                 </div>
               </div>
             ))

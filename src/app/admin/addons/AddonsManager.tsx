@@ -83,7 +83,7 @@ export default function AddonsManager({ initialAddons }: { initialAddons: AddonR
       <div className="flex justify-end">
         <button
           onClick={() => setShowForm((v) => !v)}
-          className="px-4 py-2 bg-burgundy text-white rounded-lg hover:bg-burgundy/90 text-sm font-medium"
+          className="w-full sm:w-auto px-4 py-2 bg-burgundy text-white rounded-lg hover:bg-burgundy/90 text-sm font-medium"
         >
           {showForm ? 'Cancel' : '+ Add Add-on'}
         </button>
@@ -127,7 +127,48 @@ export default function AddonsManager({ initialAddons }: { initialAddons: AddonR
         </form>
       )}
 
-      <div className="bg-white rounded-lg shadow overflow-hidden">
+      {/* Mobile card list */}
+      <div className="md:hidden space-y-3">
+        {items.length === 0 && (
+          <div className="bg-white rounded-lg shadow p-6 text-center text-gray-500 text-sm">No add-ons yet</div>
+        )}
+        {items.map((a) => (
+          <div key={a.id} className={`bg-white rounded-lg shadow p-4 ${a.isActive ? '' : 'opacity-50'}`}>
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <p className="font-medium text-gray-900">{a.name}</p>
+                <p className="text-xs text-gray-500 mt-0.5">{a.description}</p>
+              </div>
+              <button
+                onClick={() => patch(a.id, { isActive: !a.isActive })}
+                disabled={busyId === a.id}
+                className={`px-2 py-1 text-xs rounded-full font-medium whitespace-nowrap ${
+                  a.isActive ? 'bg-green-100 text-green-800' : 'bg-gray-200 text-gray-600'
+                }`}
+              >
+                {a.isActive ? 'Active' : 'Inactive'}
+              </button>
+            </div>
+            <label className="mt-3 block">
+              <span className="text-xs text-gray-500">Price (₦)</span>
+              <input
+                type="number"
+                defaultValue={a.price / 100}
+                className="mt-1 w-32 px-2 py-1.5 border border-gray-300 rounded text-sm"
+                onBlur={(e) => {
+                  const naira = parseFloat(e.target.value);
+                  if (!Number.isNaN(naira) && naira * 100 !== a.price) {
+                    patch(a.id, { price: Math.round(naira * 100) });
+                  }
+                }}
+              />
+            </label>
+          </div>
+        ))}
+      </div>
+
+      {/* Desktop table */}
+      <div className="hidden md:block bg-white rounded-lg shadow overflow-hidden">
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
