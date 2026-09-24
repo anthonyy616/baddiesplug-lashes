@@ -28,6 +28,16 @@ WHERE slug IN (
   'brow-wax',                  -- 5000       ->   500,000  (₦5,000)
   'brow-shape-trim',           -- 2000       ->   200,000  (₦2,000)
   'the-brow-duo'               -- 20000      -> 2,000,000  (₦20,000)
+)
+AND (
+  (slug = 'classic-lash-extensions' AND price = 35500)
+  OR (slug = 'volume-lash-extensions' AND price = 46200)
+  OR (slug = 'hybrid-lash-extensions' AND price = 55100)
+  OR (slug = 'brow-lamination' AND price = 15000)
+  OR (slug = 'brow-tint' AND price = 10000)
+  OR (slug = 'brow-wax' AND price = 5000)
+  OR (slug = 'brow-shape-trim' AND price = 2000)
+  OR (slug = 'the-brow-duo' AND price = 20000)
 );
 
 UPDATE addons SET
@@ -39,6 +49,13 @@ WHERE name IN (
   'Lash Refill — Baddie Extra (Mega Volume)', -- 30000 -> 3,000,000 (₦30,000)
   'Lash Removal',                             --  5000 ->   500,000 (₦5,000)
   'Bottom Lashes'                             -- 15000 -> 1,500,000 (₦15,000)
+)
+AND (
+  (name = 'Lash Refill — The Soft Baddie (Hybrid)' AND price = 19000)
+  OR (name = 'Lash Refill — I Am Baddie Full (Volume)' AND price = 25000)
+  OR (name = 'Lash Refill — Baddie Extra (Mega Volume)' AND price = 30000)
+  OR (name = 'Lash Removal' AND price = 5000)
+  OR (name = 'Bottom Lashes' AND price = 15000)
 );
 
 -- Verification gate: every target row must now hold its exact kobo price.
