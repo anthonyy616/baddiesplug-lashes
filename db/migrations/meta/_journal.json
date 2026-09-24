@@ -1,0 +1,55 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1788773110910,
+      "tag": "0000_young_james_howlett",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1788774000000,
+      "tag": "0001_fix_active_booking_slot_unique",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1788774100000,
+      "tag": "0002_add_credentials_table",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1788774200000,
+      "tag": "0003_add_password_reset_tokens",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1788774300000,
+      "tag": "0004_add_admin_auth",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1788774400000,
+      "tag": "0005_availability_overrides_admin_nullable",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1789157681833,
+      "tag": "0006_home_media_admin_managed",
+      "breakpoints": true
+    }
+  ]
+}

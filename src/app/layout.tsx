@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { Playfair_Display } from 'next/font/google';
+import { Playfair_Display, Bodoni_Moda } from 'next/font/google';
 import './globals.css';
 import { AuthProvider } from '@/components/AuthProvider';
 import { ThemeProvider } from '@/components/ThemeProvider';
@@ -11,6 +11,13 @@ import { ThemeProvider } from '@/components/ThemeProvider';
 const playfair = Playfair_Display({
   subsets: ['latin'],
   variable: '--font-playfair',
+  display: 'swap',
+});
+
+// Editorial serif for the v2 homepage redesign only; other pages keep Playfair.
+const bodoni = Bodoni_Moda({
+  subsets: ['latin'],
+  variable: '--font-bodoni',
   display: 'swap',
 });
 
@@ -44,7 +51,7 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body className={playfair.variable}>
+      <body className={`${playfair.variable} ${bodoni.variable}`}>
         <AuthProvider>
           <ThemeProvider>{children}</ThemeProvider>
         </AuthProvider>

@@ -110,12 +110,15 @@ export const services = pgTable('services', {
   price: integer('price').notNull(), // NGN kobo (minor currency unit)
   durationMinutes: integer('duration_minutes').notNull(),
   isActive: boolean('is_active').notNull().default(true),
+  // Admin-controlled: feature this service on the homepage (first 4 win).
+  isFeatured: boolean('is_featured').notNull().default(false),
   displayOrder: integer('display_order').notNull().default(0),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   deletedAt: timestamp('deleted_at', { withTimezone: true }),
 }, (table) => [
   index('services_category_idx').on(table.category),
+  index('services_is_featured_idx').on(table.isFeatured),
   index('services_is_active_idx').on(table.isActive),
   index('services_display_order_idx').on(table.displayOrder),
   index('services_deleted_at_idx').on(table.deletedAt),
@@ -134,6 +137,43 @@ export const serviceImages = pgTable('service_images', {
 }, (table) => [
   index('service_images_service_id_idx').on(table.serviceId),
   index('service_images_display_order_idx').on(table.displayOrder),
+]);
+
+/**
+ * Homepage hero/editorial slots. One row per slot ('hero' | 'editorial').
+ * Re-uploads replace the row and point at a NEW R2 key (fresh UUID), so the
+ * long-lived CDN cache never serves a stale image.
+ */
+export const homepageMedia = pgTable('homepage_media', {
+  slot: varchar('slot', { length: 50 }).primaryKey(), // 'hero' | 'editorial'
+  storageKey: varchar('storage_key', { length: 500 }).notNull(),
+  publicUrl: varchar('public_url', { length: 500 }).notNull(),
+  altText: varchar('alt_text', { length: 255 }),
+  width: integer('width'),
+  height: integer('height'),
+  uploadedBy: varchar('uploaded_by', { length: 255 }),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+});
+
+/**
+ * Homepage work-gallery images. Fully admin-managed: upload (any of
+ * WEBP/JPG/PNG/HEIC — re-encoded to true WebP server-side), caption, reorder,
+ * delete. Homepage renders these in displayOrder; no hardcoded R2 keys.
+ */
+export const galleryImages = pgTable('gallery_images', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  storageKey: varchar('storage_key', { length: 500 }).notNull(),
+  publicUrl: varchar('public_url', { length: 500 }).notNull(),
+  caption: varchar('caption', { length: 120 }),
+  altText: varchar('alt_text', { length: 255 }),
+  displayOrder: integer('display_order').notNull().default(0),
+  width: integer('width'),
+  height: integer('height'),
+  uploadedBy: varchar('uploaded_by', { length: 255 }),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+}, (table) => [
+  index('gallery_images_display_order_idx').on(table.displayOrder),
 ]);
 
 // Addons table
@@ -333,6 +373,8 @@ export const serviceImagesRelations = relations(serviceImages, ({ one }) => ({
     references: [services.id],
   }),
 }));
+
+export const galleryImagesRelations = relations(galleryImages, () => ({}));
 
 export const addonsRelations = relations(addons, ({ many }) => ({
   bookingAddons: many(bookingAddons),

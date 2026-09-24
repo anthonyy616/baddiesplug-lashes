@@ -9,6 +9,13 @@
   --color-burgundy-hover: #7A001F;
   --color-burgundy-lifted: #B8123F;
 
+  /* v2 homepage redesign — luxury burgundy system (§13) */
+  --color-wine: #4A0013;
+  --color-wine-deep: #250008;
+  --color-ink-black: #100609;
+  --color-warm-white: #FFF9F8;
+  --color-rose-muted: #C98A9A;
+
   /* ui-spec-final.md design tokens — light */
   --color-ink: #111111;
   --color-ink-secondary: #6B6B6B;
@@ -27,6 +34,7 @@
   --color-disabled-text-dark: #4D4D4D;
 
   --font-display: var(--font-playfair), Georgia, serif;
+  --font-editorial: var(--font-bodoni), var(--font-playfair), Georgia, serif;
 }
 
 html {
@@ -94,3 +102,273 @@ body {
     scroll-behavior: auto !important;
   }
 }
+
+/* ============================================================
+   v2 homepage redesign — luxury editorial system
+   (scoped under .home-page; other pages are unaffected)
+   ============================================================ */
+
+.home-page {
+  font-family: var(--font-bodoni), var(--font-playfair), Georgia, serif;
+}
+
+.home-page .font-editorial {
+  font-family: var(--font-bodoni), var(--font-playfair), Georgia, serif;
+}
+
+.home-page .font-sans-ui {
+  font-family: var(--font-sans-ui);
+}
+
+/* Editorial heading accent (burgundy in light, rose-muted in dark). Defined
+   OUTSIDE @layer on purpose: unlayered rules beat every layered utility, so
+   this reliably overrides EditorialHeading's tone color — which same-layer
+   color utilities cannot do, because Tailwind v4 sorts dark: variants after
+   base color utilities regardless of class order in the markup. */
+.heading-accent {
+  color: var(--color-burgundy);
+}
+
+.dark .heading-accent {
+  color: var(--color-rose-muted);
+}
+
+/* ----------------------------------------------------------
+   Burgundy silk background (§15) — pure CSS layered gradients
+   ---------------------------------------------------------- */
+
+.silk-stage {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.silk-base {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(120% 90% at 15% 10%, rgba(148, 0, 37, 0.55) 0%, rgba(148, 0, 37, 0) 55%),
+    radial-gradient(100% 80% at 85% 90%, rgba(74, 0, 19, 0.9) 0%, rgba(37, 0, 8, 0) 60%),
+    linear-gradient(160deg, #250008 0%, #100609 55%, #1A020A 100%);
+}
+
+.silk-layer {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(60px);
+  will-change: transform;
+}
+
+.silk-1 {
+  top: -20%;
+  left: -10%;
+  width: 75vw;
+  height: 75vw;
+  background: radial-gradient(closest-side, rgba(148, 0, 37, 0.5), transparent 70%);
+  animation: silk-drift-1 26s ease-in-out infinite alternate;
+}
+
+.silk-2 {
+  top: 10%;
+  right: -20%;
+  width: 70vw;
+  height: 70vw;
+  background: radial-gradient(closest-side, rgba(184, 18, 63, 0.34), transparent 70%);
+  animation: silk-drift-2 22s ease-in-out infinite alternate;
+}
+
+.silk-3 {
+  bottom: -25%;
+  left: 15%;
+  width: 80vw;
+  height: 60vw;
+  background: radial-gradient(closest-side, rgba(255, 249, 248, 0.07), transparent 70%);
+  animation: silk-drift-3 30s ease-in-out infinite alternate;
+}
+
+/* Cursor glow (§18) — position updated by JS, desktop fine-pointer only */
+.silk-cursor-glow {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 40vw;
+  height: 40vw;
+  max-width: 560px;
+  max-height: 560px;
+  margin: -20vw;
+  margin-top: -20vw;
+  background: radial-gradient(closest-side, rgba(184, 18, 63, 0.28), transparent 70%);
+  filter: blur(40px);
+  opacity: 0;
+  transition: opacity 0.6s ease;
+  will-change: transform;
+}
+
+.silk-stage[data-cursor-active='true'] .silk-cursor-glow {
+  opacity: 1;
+}
+
+@keyframes silk-drift-1 {
+  from { transform: translate3d(0, 0, 0) scale(1); }
+  to { transform: translate3d(14vw, 8vh, 0) scale(1.12); }
+}
+
+@keyframes silk-drift-2 {
+  from { transform: translate3d(0, 0, 0) rotate(0deg) scale(1); }
+  to { transform: translate3d(-10vw, 10vh, 0) rotate(18deg) scale(1.08); }
+}
+
+@keyframes silk-drift-3 {
+  from { transform: translate3d(0, 0, 0) scale(1); }
+  to { transform: translate3d(8vw, -6vh, 0) scale(1.1); }
+}
+
+/* ----------------------------------------------------------
+   Grain texture (§17) — inline noise SVG, 2-5% opacity
+   ---------------------------------------------------------- */
+
+.grain-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160' viewBox='0 0 160 160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)' opacity='0.5'/%3E%3C/svg%3E");
+  background-size: 160px 160px;
+  opacity: 0.035;
+  mix-blend-mode: overlay;
+}
+
+/* ----------------------------------------------------------
+   Lash lines (§16) — gentle drift for the SVG curves
+   ---------------------------------------------------------- */
+
+.lash-path {
+  stroke-dasharray: 300;
+  stroke-dashoffset: 300;
+  animation: lash-draw 14s ease-in-out infinite alternate;
+}
+
+.lash-path-delay-1 { animation-delay: -3s; }
+.lash-path-delay-2 { animation-delay: -7s; }
+.lash-path-delay-3 { animation-delay: -11s; }
+
+@keyframes lash-draw {
+  0% { stroke-dashoffset: 300; opacity: 0; }
+  25% { opacity: 1; }
+  70% { stroke-dashoffset: 40; opacity: 1; }
+  100% { stroke-dashoffset: 0; opacity: 0; }
+}
+
+/* ----------------------------------------------------------
+   Brand marquee (§19) — pure CSS, slow continuous scroll
+   ---------------------------------------------------------- */
+
+.marquee-track {
+  display: flex;
+  width: max-content;
+  animation: marquee-scroll 38s linear infinite;
+  will-change: transform;
+}
+
+@keyframes marquee-scroll {
+  from { transform: translate3d(0, 0, 0); }
+  to { transform: translate3d(-50%, 0, 0); }
+}
+
+.marquee-track:hover {
+  animation-play-state: paused;
+}
+
+/* ----------------------------------------------------------
+   Mobile performance (§41) — lighten effects on small screens
+   ---------------------------------------------------------- */
+
+@media (max-width: 767px) {
+  .silk-layer {
+    filter: blur(36px);
+  }
+
+  .silk-1 { width: 110vw; height: 110vw; opacity: 0.8; }
+  .silk-2 { width: 100vw; height: 100vw; opacity: 0.7; }
+  .silk-3 { opacity: 0.6; }
+
+  .grain-overlay {
+    opacity: 0.025;
+  }
+
+  .lash-svg {
+    display: none;
+  }
+}
+
+/* ----------------------------------------------------------
+   Featured services (§20-22) — desktop row hover preview
+   ---------------------------------------------------------- */
+
+/* The preview image is absolutely positioned and intentionally overlaps the
+   row's layout (it floats over the price/arrow column). It must stay hidden
+   until hover/focus so it never blocks content; then it lifts, straightens
+   and follows the cursor via the JS handler below. */
+.service-row-img {
+  display: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .service-row:hover .service-row-img,
+  .service-row:focus-visible .service-row-img {
+    display: block;
+  }
+
+  .service-row-img {
+    transition:
+      transform 0.45s cubic-bezier(0.22, 1, 0.36, 1),
+      translate 0.3s ease-out,
+      opacity 0.45s ease;
+    transform: translateY(-50%) rotate(6deg);
+    opacity: 0;
+  }
+
+  .service-row:hover .service-row-img {
+    transform: translateY(-50%) rotate(2deg);
+    opacity: 1;
+  }
+}
+
+/* ----------------------------------------------------------
+   Reduced motion (§42) — static backgrounds, no marquee motion
+   ---------------------------------------------------------- */
+
+@media (prefers-reduced-motion: reduce) {
+  .silk-layer,
+  .silk-cursor-glow,
+  .marquee-track,
+  .lash-path {
+    animation: none !important;
+  }
+
+  .silk-cursor-glow {
+    display: none;
+  }
+
+  .lash-path {
+    stroke-dashoffset: 0;
+    opacity: 0.5;
+  }
+
+  .marquee-track {
+    flex-wrap: wrap;
+  }
+
+  /* Footer wordmark: keep a single clipped line (no giant stacked rows) */
+  .footer-marquee .marquee-track {
+    flex-wrap: nowrap;
+  }
+
+  .service-row-img {
+    display: block !important;
+    opacity: 1 !important;
+    transform: translateY(-50%) rotate(2deg) !important;
+    transition: none !important;
+  }
+}
+

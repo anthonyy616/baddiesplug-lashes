@@ -59,11 +59,11 @@ export default function AdminLoginPage() {
             <input
               id="username"
               type="text"
-              value={username}
+              value={username} 
               onChange={(e) => setUsername(e.target.value)}
               autoComplete="username"
               autoFocus
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-burgundy"
+              className="w-full px-4 py-3 border border-black rounded-lg text-black focus:outline-none focus:ring-2 focus:ring-burgundy"
             />
           </div>
           <div>
@@ -76,19 +76,19 @@ export default function AdminLoginPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               autoComplete="current-password"
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-burgundy"
+              className="w-full px-4 py-3 border border-black rounded-lg text-black focus:outline-none focus:ring-2 focus:ring-burgundy"
             />
           </div>
           <button
             type="submit"
             disabled={isLoading}
-            className="w-full px-4 py-3 bg-burgundy text-white font-semibold rounded-lg hover:bg-burgundy/90 disabled:opacity-50 transition-colors"
+            className="w-full px-4 py-3 bg-burgundy text-black font-semibold rounded-lg hover:bg-burgundy/90 disabled:opacity-50 transition-colors"
           >
             {isLoading ? 'Signing in...' : 'Sign In'}
           </button>
         </form>
 
-        <p className="mt-6 text-xs text-gray-400 text-center">
+        <p className="mt-6 text-xs text-gray-700 text-center">
           First sign-in registers your chosen username and password.
         </p>
       </div>
