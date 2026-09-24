@@ -168,26 +168,15 @@ WHERE name IN (
 
 -- Official add-ons. There is no unique constraint on addons.name, so guard
 -- each insert with a NOT EXISTS check to keep the script idempotent.
--- Refill prices apply to existing Baddies Plug sets suitable for a refill.
-
 INSERT INTO addons (id, name, description, price, is_active, display_order, created_at, updated_at)
 SELECT gen_random_uuid(), v.name, v.description, v.price, true, v.display_order, now(), now()
 FROM (VALUES
-  ('Lash Refill — The Soft Baddie (Hybrid)',
-   'Two-week maintenance appointment to refresh your existing Soft Baddie set, replacing lashes that have naturally shed and restoring fullness and definition. Recommended every 2 weeks. Applies to existing Baddies Plug sets suitable for a refill.',
-   1900000, 1),
-  ('Lash Refill — I Am Baddie Full (Volume)',
-   'Two-week maintenance appointment to restore the fullness, density and shape of your existing I Am Baddie Full set. Recommended every 2 weeks. Applies to existing Baddies Plug sets suitable for a refill.',
-   2500000, 2),
-  ('Lash Refill — Baddie Extra (Mega Volume)',
-   'Two-week maintenance appointment to restore the maximum fullness and density of your existing Baddie Extra set. Recommended every 2 weeks. If too much of the original set has shed, a new full set may be required.',
-   3000000, 3),
   ('Lash Removal',
    'Professional removal of existing lash extensions using a gentle removal process designed to protect your natural lashes. Removal of another lash artist''s work may be required before a new set can be applied.',
-   500000, 4),
+  500000, 1),
   ('Bottom Lashes',
    'Customised bottom lash extensions for extra definition. Price shown is for the full (dramatic) option; subtle options are available in-salon.',
-   1500000, 5)
+  1500000, 2)
 ) AS v(name, description, price, display_order)
 WHERE NOT EXISTS (
   SELECT 1 FROM addons a WHERE a.name = v.name

@@ -105,6 +105,7 @@ export const services = pgTable('services', {
   name: varchar('name', { length: 255 }).notNull(),
   slug: varchar('slug', { length: 255 }).notNull().unique(),
   category: varchar('category', { length: 50 }).notNull(), // 'lash' or 'eyebrow'
+  subcategory: varchar('subcategory', { length: 50 }),
   description: text('description').notNull(),
   notes: text('notes').notNull(),
   price: integer('price').notNull(), // NGN kobo (minor currency unit)

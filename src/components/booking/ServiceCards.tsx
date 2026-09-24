@@ -10,6 +10,7 @@ export interface SelectableService {
   price: number;
   durationMinutes: number;
   category: string;
+  subcategory?: string | null;
 }
 
 const formatPrice = (kobo: number) =>
@@ -59,13 +60,33 @@ export default function ServiceCards({ services, selectedIds, onToggle }: Servic
       </div>
 
       {/* Service cards */}
-      <div className="space-y-3" role="tabpanel">
+      <div className="space-y-8" role="tabpanel">
         {filtered.length === 0 ? (
           <p className="text-sm text-ink-secondary dark:text-ink-dark-secondary py-6 text-center">
             No {activeTab === 'lash' ? 'lash' : 'eyebrow'} services available right now.
           </p>
         ) : (
-          filtered.map((service) => {
+          (['main', 'refills'] as const).map((section) => {
+            const sectionServices = filtered.filter((service) =>
+              section === 'refills' ? service.subcategory === 'refills' : !service.subcategory
+            );
+
+            if (sectionServices.length === 0) return null;
+
+            return (
+              <section key={section} aria-labelledby={`${activeTab}-${section}-heading`}>
+                {activeTab === 'lash' && section === 'refills' && (
+                  <>
+                    <h3 id={`${activeTab}-${section}-heading`} className="font-display text-xl text-ink dark:text-ink-dark mb-3">
+                      Refills
+                    </h3>
+                    <p className="text-sm text-ink-secondary dark:text-ink-dark-secondary mb-4">
+                      Recommended every 2 weeks for existing Baddies Plug sets suitable for a refill.
+                    </p>
+                  </>
+                )}
+                <div className="space-y-3">
+                  {sectionServices.map((service) => {
             const selected = selectedIds.has(service.id);
             return (
               <button
@@ -107,6 +128,10 @@ export default function ServiceCards({ services, selectedIds, onToggle }: Servic
                   </div>
                 </div>
               </button>
+            );
+                  })}
+                </div>
+              </section>
             );
           })
         )}

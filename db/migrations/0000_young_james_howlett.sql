@@ -125,6 +125,7 @@ CREATE TABLE "services" (
 	"name" varchar(255) NOT NULL,
 	"slug" varchar(255) NOT NULL,
 	"category" varchar(50) NOT NULL,
+	"subcategory" varchar(50),
 	"description" text NOT NULL,
 	"notes" text NOT NULL,
 	"price" integer NOT NULL,

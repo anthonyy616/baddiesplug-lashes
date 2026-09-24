@@ -14,6 +14,7 @@ interface ServiceRow {
   id: string;
   name: string;
   category: string;
+  subcategory: string | null;
   description: string;
   price: number;
   durationMinutes: number;
@@ -24,7 +25,9 @@ interface ServiceRow {
 }
 
 const formatPrice = (kobo: number) =>
-  new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN', minimumFractionDigits: 0 }).format(kobo / 100);export default function ServicesManager({ initialServices }: { initialServices: ServiceRow[] }) {
+  new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN', minimumFractionDigits: 0 }).format(kobo / 100);
+
+export default function ServicesManager({ initialServices }: { initialServices: ServiceRow[] }) {
   const router = useRouter();
   const [items, setItems] = useState(initialServices);
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -417,9 +420,11 @@ const formatPrice = (kobo: number) =>
         </form>
       )}
 
-      {renderCardList('Lash Services', lash)}
+      {renderCardList('Lash Services', lash.filter((s) => !s.subcategory))}
+      {lash.some((s) => s.subcategory === 'refills') && renderCardList('Lash Services · Refills', lash.filter((s) => s.subcategory === 'refills'))}
       {renderCardList('Eyebrow Services', brow)}
-      {renderTable('Lash Services', lash)}
+      {renderTable('Lash Services', lash.filter((s) => !s.subcategory))}
+      {lash.some((s) => s.subcategory === 'refills') && renderTable('Lash Services · Refills', lash.filter((s) => s.subcategory === 'refills'))}
       {renderTable('Eyebrow Services', brow)}
     </div>
   );

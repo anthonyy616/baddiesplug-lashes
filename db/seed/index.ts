@@ -150,39 +150,57 @@ const eyebrowServicesSeed = [
   },
 ];
 
-// Official add-ons (extras) — prices in NGN kobo (naira × 100).
-const addonsSeed = [
+const refillServicesSeed = [
   {
-    name: 'Lash Refill — The Soft Baddie (Hybrid)',
+    name: 'The Soft Baddie',
+    slug: 'the-soft-baddie-refill',
     description:
-      'Two-week maintenance appointment to refresh your existing Soft Baddie set, replacing lashes that have naturally shed and restoring fullness and definition. Recommended every 2 weeks. Applies to existing Baddies Plug sets suitable for a refill.',
-    price: 1900000, // ₦19,000
-    isActive: true,
+      'A two-week maintenance appointment to refresh your existing Soft Baddie set, replacing lashes that have naturally shed and restoring fullness and definition.',
+    notes:
+      'Hybrid refill. Refills are recommended every 2 weeks to maintain the fullness and appearance of your set. Refill pricing applies to existing Baddies Plug sets that are suitable for a refill. If too much of the original set has shed, a new full set may be required.',
+    price: 1900000,
+    durationMinutes: 90,
+    category: 'lash',
+    subcategory: 'refills',
     displayOrder: 1,
   },
   {
-    name: 'Lash Refill — I Am Baddie Full (Volume)',
+    name: 'I Am Baddie Full',
+    slug: 'i-am-baddie-full-refill',
     description:
-      'Two-week maintenance appointment to restore the fullness, density and shape of your existing I Am Baddie Full set. Recommended every 2 weeks. Applies to existing Baddies Plug sets suitable for a refill.',
-    price: 2500000, // ₦25,000
-    isActive: true,
+      'A two-week maintenance appointment to restore the fullness, density and shape of your existing I Am Baddie Full set.',
+    notes:
+      'Volume refill. Refills are recommended every 2 weeks to maintain the fullness and appearance of your set. Refill pricing applies to existing Baddies Plug sets that are suitable for a refill. If too much of the original set has shed, a new full set may be required.',
+    price: 2500000,
+    durationMinutes: 90,
+    category: 'lash',
+    subcategory: 'refills',
     displayOrder: 2,
   },
   {
-    name: 'Lash Refill — Baddie Extra (Mega Volume)',
+    name: 'Baddie Extra',
+    slug: 'baddie-extra-refill',
     description:
-      'Two-week maintenance appointment to restore the maximum fullness and density of your existing Baddie Extra set. Recommended every 2 weeks. If too much of the original set has shed, a new full set may be required.',
-    price: 3000000, // ₦30,000
-    isActive: true,
+      'A two-week maintenance appointment designed to restore the maximum fullness and density of your existing Baddie Extra set.',
+    notes:
+      'Mega Volume refill. Refills are recommended every 2 weeks to maintain the fullness and appearance of your set. Refill pricing applies to existing Baddies Plug sets that are suitable for a refill. If too much of the original set has shed, a new full set may be required.',
+    price: 3000000,
+    durationMinutes: 90,
+    category: 'lash',
+    subcategory: 'refills',
     displayOrder: 3,
   },
+];
+
+// Official add-ons (extras) — prices in NGN kobo (naira × 100).
+const addonsSeed = [
   {
     name: 'Lash Removal',
     description:
       'Professional removal of existing lash extensions using a gentle removal process designed to protect your natural lashes. Removal of another lash artist\'s work may be required before a new set can be applied.',
     price: 500000, // ₦5,000
     isActive: true,
-    displayOrder: 4,
+    displayOrder: 1,
   },
   {
     name: 'Bottom Lashes',
@@ -190,7 +208,7 @@ const addonsSeed = [
       'Customised bottom lash extensions for extra definition. Price shown is for the full (dramatic) option; subtle options are available in-salon.',
     price: 1500000, // ₦15,000
     isActive: true,
-    displayOrder: 5,
+    displayOrder: 2,
   },
 ];
 
@@ -221,7 +239,7 @@ async function seed() {
     // --- Services ---
     console.log('Creating services...');
     let serviceCount = 0;
-    for (const service of [...lashServices, ...eyebrowServicesSeed]) {
+    for (const service of [...lashServices, ...refillServicesSeed, ...eyebrowServicesSeed]) {
       const existingService = await db
         .query.services
         .findFirst({ where: eq(services.slug, service.slug) });
@@ -232,6 +250,7 @@ async function seed() {
           name: service.name,
           slug: service.slug,
           category: service.category,
+          subcategory: 'subcategory' in service ? service.subcategory as string : undefined,
           description: service.description,
           notes: service.notes,
           price: service.price,
@@ -252,6 +271,7 @@ async function seed() {
             price: service.price,
             durationMinutes: service.durationMinutes,
             displayOrder: service.displayOrder,
+            subcategory: 'subcategory' in service ? service.subcategory as string : undefined,
             updatedAt: new Date(),
           })
           .where(eq(services.slug, service.slug));

@@ -23,6 +23,7 @@ export default async function AdminServicesPage() {
           id: s.id,
           name: s.name,
           category: s.category,
+          subcategory: s.subcategory,
           description: s.description,
           price: s.price,
           durationMinutes: s.durationMinutes,

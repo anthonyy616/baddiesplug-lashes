@@ -1,0 +1,112 @@
+[
+  {
+    "id": "f0c7ece8-4a94-4caf-b03f-d7273d11924e",
+    "name": "Bottom Lashes",
+    "description": "Customised bottom lash extensions for extra definition. Price shown is for the full (dramatic) option; subtle options are available in-salon.",
+    "price": 1500000,
+    "is_active": true,
+    "display_order": 5,
+    "created_at": "2026-09-23T18:29:44.714Z",
+    "updated_at": "2026-09-23T18:31:24.165Z"
+  },
+  {
+    "id": "e28326d1-9591-4072-b07f-0433350d98f2",
+    "name": "Brow Lamination Add-On",
+    "description": "Add brow lamination to your brow service.",
+    "price": 8000,
+    "is_active": false,
+    "display_order": 3,
+    "created_at": "2026-09-07T11:38:30.353Z",
+    "updated_at": "2026-09-23T18:29:44.714Z"
+  },
+  {
+    "id": "61df8811-a8d0-499d-bc3e-b43ed3aaee8a",
+    "name": "Brow Tint Add-On",
+    "description": "Add brow tint to any brow service.",
+    "price": 5000,
+    "is_active": false,
+    "display_order": 5,
+    "created_at": "2026-09-07T11:38:31.114Z",
+    "updated_at": "2026-09-23T18:29:44.714Z"
+  },
+  {
+    "id": "bc7b3eab-7897-4101-9369-c6751fbb133f",
+    "name": "LED Under Eye Treatment",
+    "description": "LED light therapy to reduce puffiness and dark circles.",
+    "price": 5000,
+    "is_active": false,
+    "display_order": 1,
+    "created_at": "2026-09-07T11:38:29.553Z",
+    "updated_at": "2026-09-23T18:29:44.714Z"
+  },
+  {
+    "id": "b84d830c-7773-4b28-a35b-e4e0f3561dc7",
+    "name": "Lash Lift Add-On",
+    "description": "Add a lash lift to your lash extension appointment.",
+    "price": 10000,
+    "is_active": false,
+    "display_order": 2,
+    "created_at": "2026-09-07T11:38:29.927Z",
+    "updated_at": "2026-09-23T18:29:44.714Z"
+  },
+  {
+    "id": "4968352a-3d28-4235-840f-1ed679120383",
+    "name": "Lash Refill — Baddie Extra (Mega Volume)",
+    "description": "Two-week maintenance appointment to restore the maximum fullness and density of your existing Baddie Extra set. Recommended every 2 weeks. If too much of the original set has shed, a new full set may be required.",
+    "price": 3000000,
+    "is_active": false,
+    "display_order": 3,
+    "created_at": "2026-09-23T18:29:44.714Z",
+    "updated_at": "2026-09-24T10:56:18.798Z"
+  },
+  {
+    "id": "907b2a1b-3ae9-42ba-8f14-65195162b469",
+    "name": "Lash Refill — I Am Baddie Full (Volume)",
+    "description": "Two-week maintenance appointment to restore the fullness, density and shape of your existing I Am Baddie Full set. Recommended every 2 weeks. Applies to existing Baddies Plug sets suitable for a refill.",
+    "price": 2500000,
+    "is_active": false,
+    "display_order": 2,
+    "created_at": "2026-09-23T18:29:44.714Z",
+    "updated_at": "2026-09-24T10:56:18.798Z"
+  },
+  {
+    "id": "31934059-c91f-4fae-80e9-dff371dec12f",
+    "name": "Lash Refill — The Soft Baddie (Hybrid)",
+    "description": "Two-week maintenance appointment to refresh your existing Soft Baddie set, replacing lashes that have naturally shed and restoring fullness and definition. Recommended every 2 weeks. Applies to existing Baddies Plug sets suitable for a refill.",
+    "price": 1900000,
+    "is_active": false,
+    "display_order": 1,
+    "created_at": "2026-09-23T18:29:44.714Z",
+    "updated_at": "2026-09-24T10:56:18.798Z"
+  },
+  {
+    "id": "b677e917-b33e-467e-be9f-cb73e1d189a9",
+    "name": "Lash Removal",
+    "description": "Professional removal of existing lash extensions using a gentle removal process designed to protect your natural lashes. Removal of another lash artist's work may be required before a new set can be applied.",
+    "price": 500000,
+    "is_active": true,
+    "display_order": 4,
+    "created_at": "2026-09-23T18:29:44.714Z",
+    "updated_at": "2026-09-23T18:31:24.165Z"
+  },
+  {
+    "id": "13b40e94-b25b-4164-8fcc-ed0e3b94a013",
+    "name": "Lash Tint Add-On",
+    "description": "Add lash tint to any lash service.",
+    "price": 5000,
+    "is_active": false,
+    "display_order": 4,
+    "created_at": "2026-09-07T11:38:30.783Z",
+    "updated_at": "2026-09-23T18:29:44.714Z"
+  },
+  {
+    "id": "52e7ed75-1fee-4d4a-bf64-01b762ae40ae",
+    "name": "Under Eye Brightening",
+    "description": "Concealer application and brightening treatment.",
+    "price": 3000,
+    "is_active": false,
+    "display_order": 6,
+    "created_at": "2026-09-07T11:38:31.527Z",
+    "updated_at": "2026-09-23T18:29:44.714Z"
+  }
+]

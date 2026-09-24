@@ -43,6 +43,7 @@ export default async function ServiceDetailPage({ params }: PageProps) {
           <div>
             <span className="text-sm uppercase tracking-wide text-gray-500 dark:text-gray-400">
               {service.category === 'lash' ? 'Lash Services' : 'Eyebrow Services'}
+              {service.subcategory === 'refills' && ' · Refills'}
             </span>
             <h1 className="text-4xl font-bold text-gray-900 dark:text-white mt-2">
               {service.name}

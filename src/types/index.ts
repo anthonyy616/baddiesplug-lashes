@@ -43,6 +43,7 @@ export interface Service {
   name: string;
   slug: string;
   category: ServiceCategory;
+  subcategory?: string | null;
   description: string;
   notes: string;
   price: number; // in NGN kobo (minor currency unit)
