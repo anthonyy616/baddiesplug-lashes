@@ -1,16 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import bcrypt from 'bcryptjs';
 import { db } from '@/lib/db';
-import { users, credentials } from '@/lib/db/schema';
+import { users } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 import { v4 as uuidv4 } from 'uuid';
 import { checkRateLimit, RateLimits, createRateLimitKey } from '@/lib/rate-limit';
 
 const registerSchema = z.object({
   email: z.string().email(),
-  password: z.string().min(8),
   name: z.string().min(1).max(255),
+  phone: z.string().max(20).optional().or(z.literal('')),
 });
 
 export async function POST(request: NextRequest) {
@@ -36,7 +35,7 @@ export async function POST(request: NextRequest) {
     const parsed = registerSchema.safeParse(body);
     if (!parsed.success) {
       return NextResponse.json(
-        { error: 'Please provide a valid name, email, and a password of at least 8 characters.' },
+        { error: 'Please provide a valid name and email.' },
         { status: 400 }
       );
     }
@@ -54,7 +53,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const passwordHash = await bcrypt.hash(parsed.data.password, 10);
     const authUserId = uuidv4();
 
     await db.transaction(async (tx) => {
@@ -63,9 +61,9 @@ export async function POST(request: NextRequest) {
         authUserId,
         name: parsed.data.name,
         email,
+        phone: parsed.data.phone || null,
         role: 'customer',
       });
-      await tx.insert(credentials).values({ authUserId, passwordHash });
     });
 
     return NextResponse.json({ success: true });

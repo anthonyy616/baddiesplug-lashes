@@ -9,6 +9,7 @@ import { db } from '@/lib/db';
 import { notifications } from '@/lib/db/schema';
 import { eq, and, sql } from 'drizzle-orm';
 import CustomerNotifications from '@/components/account/CustomerNotifications';
+import ProfileSettings from '@/components/account/ProfileSettings';
 
 export const dynamic = 'force-dynamic';
 
@@ -80,6 +81,8 @@ export default async function AccountPage() {
             </Link>
           </div>
         </div>
+
+        <ProfileSettings name={user.name} email={user.email} phone={user.phone} />
 
         <CustomerNotifications />
 

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { db } from '@/lib/db';
-import { payments } from '@/lib/db/schema';
+import { payments, bookings } from '@/lib/db/schema';
 import { desc, eq } from 'drizzle-orm';
 import { v4 as uuidv4 } from 'uuid';
 import { getPaymentProvider } from '@/lib/payments';
@@ -45,7 +45,7 @@ export async function POST(request: NextRequest) {
 
     // Verify booking exists
     const booking = await db.query.bookings.findFirst({
-      where: eq(payments.bookingId, parsed.data.bookingId),
+      where: eq(bookings.id, parsed.data.bookingId),
     });
     if (!booking) {
       return NextResponse.json({ error: 'Booking not found' }, { status: 404 });

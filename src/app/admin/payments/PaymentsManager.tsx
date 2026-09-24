@@ -13,7 +13,24 @@ interface PaymentRow {
   createdAt: string;
 }
 
-export default function PaymentsManager({ recentPayments }: { recentPayments: PaymentRow[] }) {
+interface BookingOption {
+  id: string;
+  reference: string;
+  appointmentDate: string;
+  startTime: string;
+  status: string;
+  customerName: string;
+  customerEmail: string;
+  customerPhone: string | null;
+}
+
+export default function PaymentsManager({
+  recentPayments,
+  bookingOptions,
+}: {
+  recentPayments: PaymentRow[];
+  bookingOptions: BookingOption[];
+}) {
   const router = useRouter();
   const [payments, setPayments] = useState(recentPayments);
   const [error, setError] = useState<string | null>(null);
@@ -82,14 +99,21 @@ export default function PaymentsManager({ recentPayments }: { recentPayments: Pa
 
       <form onSubmit={submit} className="bg-white rounded-lg shadow p-4 grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
         <div className="md:col-span-2">
-          <label className="block text-sm font-medium text-gray-700 mb-1">Booking ID (UUID)</label>
-          <input
+          <label className="block text-sm font-medium text-gray-700 mb-1">Booking</label>
+          <select
             value={form.bookingId}
             onChange={(e) => setForm({ ...form, bookingId: e.target.value })}
-            placeholder="From the booking detail page"
-            className="w-full px-3 py-2 border border-black rounded-lg text-sm text-black"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
             required
-          />
+          >
+            <option value="">Select a booking</option>
+            {bookingOptions.map((booking) => (
+              <option key={booking.id} value={booking.id}>
+                {booking.reference} · {booking.customerName} · {booking.appointmentDate} {booking.startTime} · {booking.status}
+                {booking.customerPhone ? ` · ${booking.customerPhone}` : ` · ${booking.customerEmail}`}
+              </option>
+            ))}
+          </select>
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Amount (₦)</label>

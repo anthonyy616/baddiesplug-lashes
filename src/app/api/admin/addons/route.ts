@@ -103,3 +103,26 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ error: 'Failed to update add-on' }, { status: 500 });
   }
 }
+
+export async function DELETE(request: NextRequest) {
+  try {
+    await requireAdminSession();
+    const id = request.nextUrl.searchParams.get('id');
+    if (!id) return NextResponse.json({ error: 'Add-on ID is required' }, { status: 400 });
+
+    const [deleted] = await db
+      .update(addons)
+      .set({ isActive: false, updatedAt: new Date() })
+      .where(eq(addons.id, id))
+      .returning({ id: addons.id });
+
+    if (!deleted) return NextResponse.json({ error: 'Add-on not found' }, { status: 404 });
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    if (error instanceof Error && error.message === 'AdminUnauthorized') {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+    console.error('Admin addons DELETE error:', error);
+    return NextResponse.json({ error: 'Failed to delete add-on' }, { status: 500 });
+  }
+}

@@ -1,5 +1,5 @@
 import { db } from '@/lib/db';
-import { payments, bookings } from '@/lib/db/schema';
+import { payments, bookings, users } from '@/lib/db/schema';
 import { desc, eq } from 'drizzle-orm';
 import { formatLagosTime } from '@/lib/timezone';
 import PaymentsManager from './PaymentsManager';
@@ -7,6 +7,22 @@ import PaymentsManager from './PaymentsManager';
 export const dynamic = 'force-dynamic';
 
 export default async function AdminPaymentsPage() {
+  const bookingOptions = await db
+    .select({
+      id: bookings.id,
+      reference: bookings.reference,
+      appointmentDate: bookings.appointmentDate,
+      startTime: bookings.startTime,
+      status: bookings.status,
+      customerName: users.name,
+      customerEmail: users.email,
+      customerPhone: users.phone,
+    })
+    .from(bookings)
+    .innerJoin(users, eq(users.id, bookings.customerId))
+    .orderBy(desc(bookings.appointmentDate), desc(bookings.startTime))
+    .limit(500);
+
   const recent = await db.query.payments.findMany({
     orderBy: [desc(payments.createdAt)],
     limit: 100,
@@ -30,6 +46,7 @@ export default async function AdminPaymentsPage() {
       </div>
 
       <PaymentsManager
+        bookingOptions={bookingOptions}
         recentPayments={recent.map((p) => ({
           id: p.id,
           bookingId: p.bookingId,

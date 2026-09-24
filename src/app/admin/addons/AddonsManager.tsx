@@ -74,6 +74,24 @@ export default function AddonsManager({ initialAddons }: { initialAddons: AddonR
     }
   };
 
+  const remove = async (id: string) => {
+    if (!confirm('Delete this add-on from the active catalog? Existing booking history will be preserved.')) return;
+    setBusyId(id);
+    setError(null);
+    try {
+      const res = await fetch(`/api/admin/addons?id=${id}`, { method: 'DELETE' });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(data.error || 'Delete failed');
+        return;
+      }
+      setItems((prev) => prev.map((addon) => addon.id === id ? { ...addon, isActive: false } : addon));
+      router.refresh();
+    } finally {
+      setBusyId(null);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {error && (
@@ -148,6 +166,13 @@ export default function AddonsManager({ initialAddons }: { initialAddons: AddonR
               >
                 {a.isActive ? 'Active' : 'Inactive'}
               </button>
+              <button
+                onClick={() => remove(a.id)}
+                disabled={busyId === a.id}
+                className="text-xs text-red-600 hover:text-red-800"
+              >
+                Delete
+              </button>
             </div>
             <label className="mt-3 block">
               <span className="text-xs text-gray-500">Price (₦)</span>
@@ -175,11 +200,12 @@ export default function AddonsManager({ initialAddons }: { initialAddons: AddonR
               <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Add-on</th>
               <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Price (₦)</th>
               <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Active</th>
+              <th className="px-4 py-2" />
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200">
             {items.length === 0 && (
-              <tr><td colSpan={3} className="px-4 py-6 text-center text-gray-500 text-sm">No add-ons yet</td></tr>
+              <tr><td colSpan={4} className="px-4 py-6 text-center text-gray-500 text-sm">No add-ons yet</td></tr>
             )}
             {items.map((a) => (
               <tr key={a.id} className={a.isActive ? '' : 'opacity-50'}>
@@ -209,6 +235,15 @@ export default function AddonsManager({ initialAddons }: { initialAddons: AddonR
                     }`}
                   >
                     {a.isActive ? 'Active' : 'Inactive'}
+                  </button>
+                </td>
+                <td className="px-4 py-3">
+                  <button
+                    onClick={() => remove(a.id)}
+                    disabled={busyId === a.id}
+                    className="text-sm text-red-600 hover:text-red-800"
+                  >
+                    Delete
                   </button>
                 </td>
               </tr>

@@ -218,7 +218,8 @@ function ServiceCard({
   imageAlt: string;
 }) {
   return (
-    <Link href={`/services/${slug}`} className="group block">        <div className="md:hidden relative overflow-hidden" style={{ aspectRatio: '2 / 3' }}>
+    <Link href={`/services/${slug}`} className="group block">
+      <div className="relative overflow-hidden" style={{ aspectRatio: '16 / 10' }}>
         {imageUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img

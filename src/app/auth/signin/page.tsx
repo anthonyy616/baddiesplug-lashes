@@ -4,7 +4,7 @@ import { useState, Suspense } from 'react';
 import { signIn } from 'next-auth/react';
 import { useRouter, useSearchParams } from 'next/navigation';
 
-type Mode = 'signin' | 'signup' | 'forgot';
+type Mode = 'signin' | 'signup';
 
 function SignInContent() {
   const router = useRouter();
@@ -14,9 +14,8 @@ function SignInContent() {
 
   const [mode, setMode] = useState<Mode>('signin');
   const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [phone, setPhone] = useState('');
   const [name, setName] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
@@ -32,38 +31,9 @@ function SignInContent() {
     setError(null);
     setInfo(null);
 
-    if (mode === 'forgot') {
-      if (!email.trim()) {
-        setError('Please enter your email address.');
-        return;
-      }
-      setIsLoading(true);
-      try {
-        const res = await fetch('/api/auth/forgot-password', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: email.trim() }),
-        });
-        if (res.ok) {
-          setInfo("If an account exists for that email, we've sent a reset link.");
-        } else {
-          setError('Something went wrong. Please try again.');
-        }
-      } catch {
-        setError('Something went wrong. Please try again.');
-      } finally {
-        setIsLoading(false);
-      }
-      return;
-    }
-
     if (mode === 'signup') {
       if (!name.trim()) {
         setError('Please enter your name.');
-        return;
-      }
-      if (password !== confirmPassword) {
-        setError("Passwords don't match.");
         return;
       }
       setIsLoading(true);
@@ -71,7 +41,7 @@ function SignInContent() {
         const res = await fetch('/api/auth/register', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: email.trim(), password, name: name.trim() }),
+          body: JSON.stringify({ email: email.trim(), phone: phone.trim(), name: name.trim() }),
         });
         const data = await res.json().catch(() => ({}));
         if (!res.ok) {
@@ -81,7 +51,7 @@ function SignInContent() {
         // Auto sign-in after registration
         const result = await signIn('credentials', {
           email: email.trim(),
-          password,
+          phone: phone.trim(),
           redirect: false,
         });
         if (result?.error) {
@@ -100,19 +70,19 @@ function SignInContent() {
     }
 
     // Sign in
-    if (!email.trim() || !password) {
-      setError('Please enter your email and password.');
+    if (!email.trim()) {
+      setError('Please enter your email address.');
       return;
     }
     setIsLoading(true);
     try {
       const result = await signIn('credentials', {
         email: email.trim(),
-        password,
+        phone: phone.trim(),
         redirect: false,
       });
       if (result?.error) {
-        setError('Invalid email or password.');
+        setError('We could not find an account with those details.');
       } else {
         router.push(callbackUrl);
         router.refresh();
@@ -136,12 +106,10 @@ function SignInContent() {
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
             {mode === 'signin' && 'Welcome Back'}
             {mode === 'signup' && 'Create Your Account'}
-            {mode === 'forgot' && 'Reset Password'}
           </h1>
           <p className="text-gray-600 dark:text-gray-400 text-sm">
             {mode === 'signin' && 'Sign in to book and manage your appointments'}
             {mode === 'signup' && 'Sign up to book your first appointment'}
-            {mode === 'forgot' && "We'll email you a reset link"}
           </p>
         </div>
 
@@ -156,8 +124,7 @@ function SignInContent() {
           </div>
         )}
 
-        {mode !== 'forgot' && (
-          <div className="space-y-3 mb-6">
+        <div className="space-y-3 mb-6">
             <button
               onClick={() => oauth('google')}
               disabled={isLoading}
@@ -178,8 +145,7 @@ function SignInContent() {
               <span className="text-xs text-gray-400">or with email</span>
               <div className="flex-1 h-px bg-gray-200 dark:bg-gray-800" />
             </div>
-          </div>
-        )}
+        </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           {mode === 'signup' && (
@@ -212,37 +178,19 @@ function SignInContent() {
             />
           </div>
 
-          {mode !== 'forgot' && (
-            <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Password
-              </label>
-              <input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
-                className="w-full px-4 py-3 border border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-burgundy"
-              />
-            </div>
-          )}
-
-          {mode === 'signup' && (
-            <div>
-              <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Confirm Password
-              </label>
-              <input
-                id="confirmPassword"
-                type="password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                autoComplete="new-password"
-                className="w-full px-4 py-3 border border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-burgundy"
-              />
-            </div>
-          )}
+          <div>
+            <label htmlFor="phone" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Phone number
+            </label>
+            <input
+              id="phone"
+              type="tel"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              autoComplete="tel"
+              className="w-full px-4 py-3 border border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-burgundy"
+            />
+          </div>
 
           <button
             type="submit"
@@ -255,7 +203,7 @@ function SignInContent() {
                 ? 'Sign In'
                 : mode === 'signup'
                   ? 'Create Account'
-                  : 'Send Reset Link'}
+                  : 'Create Account'}
           </button>
         </form>
 
@@ -268,9 +216,6 @@ function SignInContent() {
                   Sign up
                 </button>
               </p>
-              <button onClick={() => switchMode('forgot')} className="text-gray-500 hover:text-burgundy">
-                Forgot your password?
-              </button>
             </>
           )}
           {mode === 'signup' && (
@@ -280,11 +225,6 @@ function SignInContent() {
                 Sign in
               </button>
             </p>
-          )}
-          {mode === 'forgot' && (
-            <button onClick={() => switchMode('signin')} className="text-burgundy hover:underline font-medium">
-              ← Back to sign in
-            </button>
           )}
         </div>
       </div>

@@ -40,16 +40,11 @@ interface Rule {
 }
 
 /**
- * Route buckets, most specific first. Bucket key = matched prefix, so e.g.
- * /api/auth/forgot-password and /api/auth/reset-password share the
- * /api/auth/ password-bucket — deliberate: prevents rotating between the
- * two endpoints to bypass limits.
+ * Route buckets, most specific first.
  */
 const RULES: [prefix: string, rule: Rule][] = [
-  // Auth: password grinding + token brute force + account enumeration
+  // Auth registration and sign-in attempts
   ['/api/auth/register', { limit: 5, windowSeconds: 3600 }],
-  ['/api/auth/forgot-password', { limit: 5, windowSeconds: 3600 }],
-  ['/api/auth/reset-password', { limit: 5, windowSeconds: 3600 }],
   // Sign-in attempts (shared bucket with NextAuth's own route)
   ['/api/auth/', { limit: 20, windowSeconds: 300 }],
   // Admin login: brute force

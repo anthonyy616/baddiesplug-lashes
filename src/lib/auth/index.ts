@@ -1,17 +1,16 @@
 import NextAuth from 'next-auth';
 import Google from 'next-auth/providers/google';
 import Credentials from 'next-auth/providers/credentials';
-import bcrypt from 'bcryptjs';
 import { eq, and, isNull } from 'drizzle-orm';
 import type { Adapter, AdapterUser } from 'next-auth/adapters';
 import { v4 as uuidv4 } from 'uuid';
 import { db } from '@/lib/db';
-import { users, accounts, credentials } from '@/lib/db/schema';
+import { users, accounts } from '@/lib/db/schema';
 import { z } from 'zod';
 
 const credentialsSchema = z.object({
   email: z.string().email(),
-  password: z.string().min(8),
+  phone: z.string().max(20).optional().or(z.literal('')),
 });
 
 /**
@@ -161,13 +160,13 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       name: 'credentials',
       credentials: {
         email: { label: 'Email', type: 'email' },
-        password: { label: 'Password', type: 'password' },
+        phone: { label: 'Phone', type: 'tel' },
       },
       async authorize(rawCredentials) {
         const parsed = credentialsSchema.safeParse(rawCredentials);
         if (!parsed.success) return null;
 
-        const { email, password } = parsed.data;
+        const { email, phone } = parsed.data;
 
         // Find the linked application user row by email
         const dbUser = await db.query.users.findFirst({
@@ -176,16 +175,9 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
         if (!dbUser || dbUser.deletedAt) return null;
 
-        // Password hash lives in the credentials table keyed by auth_user_id
-        const credential = await db.query.credentials.findFirst({
-          // credentials.authUserId mirrors users.authUserId
-          where: eq(credentials.authUserId, dbUser.authUserId),
-        });
-
-        if (!credential || !credential.passwordHash) return null;
-
-        const valid = await bcrypt.compare(password, credential.passwordHash);
-        if (!valid) return null;
+        // Passwords are legacy data only. Existing users may sign in without
+        // one; a stored phone is checked when both sides have a value.
+        if (dbUser.phone && phone && dbUser.phone !== phone) return null;
 
         return {
           id: dbUser.id,
@@ -199,19 +191,19 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   ],
   callbacks: {
     async jwt({ token, user }) {
-      if (user?.email) {
-        // On sign-in, stamp our application user fields onto the token.
-        // user.id is our users.id for both providers (custom adapter /
-        // credentials authorize return it), but re-reading by email keeps
-        // role/phone fresh and covers legacy tokens.
-        const dbUser = await db.query.users.findFirst({
-          where: eq(users.email, user.email.toLowerCase()),
-        });
-        if (dbUser) {
-          token.id = dbUser.id;
-          token.role = dbUser.role;
-          token.phone = dbUser.phone;
-        }
+      // Re-read the profile on every JWT refresh so account edits become
+      // visible without requiring a new password-era credential record.
+      const dbUser = token.id
+        ? await db.query.users.findFirst({ where: eq(users.id, String(token.id)) })
+        : user?.email
+          ? await db.query.users.findFirst({ where: eq(users.email, user.email.toLowerCase()) })
+          : null;
+      if (dbUser) {
+        token.id = dbUser.id;
+        token.email = dbUser.email;
+        token.name = dbUser.name;
+        token.role = dbUser.role;
+        token.phone = dbUser.phone;
       }
       return token;
     },

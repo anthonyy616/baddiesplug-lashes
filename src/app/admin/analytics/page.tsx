@@ -1,8 +1,8 @@
 import { auth } from '@/lib/auth';
 import { requireAdmin } from '@/lib/auth/types';
 import { db } from '@/lib/db';
-import { bookings, users, payments, services } from '@/lib/db/schema';
-import { eq, desc, sql, and, gte, lte } from 'drizzle-orm';
+import { bookings, users, payments, bookingServices } from '@/lib/db/schema';
+import { eq, desc, sql, and, inArray } from 'drizzle-orm';
 import { getCurrentLagosDate, getLagosTime } from '@/lib/timezone';
 import Link from 'next/link';
 
@@ -56,6 +56,13 @@ export default async function AnalyticsPage() {
       <div>
         <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Analytics</h1>
         <p className="text-gray-600">Business metrics and insights</p>
+        <a
+          href="/api/admin/analytics/export"
+          download
+          className="inline-block mt-3 px-4 py-2 bg-burgundy text-white rounded-lg text-sm font-medium hover:bg-burgundy/90"
+        >
+          Export CSV
+        </a>
       </div>
 
       {/* Key Metrics */}
@@ -110,7 +117,7 @@ export default async function AnalyticsPage() {
                     <span className="font-medium truncate">{service.serviceName}</span>
                   </div>
                   <span className="text-sm text-gray-600 whitespace-nowrap">
-                    {service.count} bookings ({service.percentage.toFixed(0)}%)
+                    {service.count} bookings ({(service.percentage * 100).toFixed(0)}%)
                   </span>
                 </div>
                 <div className="mt-1.5 ml-9 bg-gray-100 rounded-full h-2">
@@ -182,7 +189,7 @@ function StatusBar({ label, count, color, total }: { label: string; count: numbe
   return (
     <div className="flex items-center justify-between">
       <div className="flex items-center gap-2">
-        <span className="w-3 h-3 rounded-full" style={{ backgroundColor: colorMap[color] }} />
+        <span className={`w-3 h-3 rounded-full ${colorMap[color] || 'bg-gray-500'}`} />
         <span className="text-sm text-gray-600">{label}</span>
       </div>
       <span className="text-sm font-medium">{count} ({percentage.toFixed(0)}%)</span>
@@ -194,10 +201,10 @@ async function getCount(table: any, condition?: any): Promise<number> {
   try {
     if (condition) {
       const result = await db.select({ count: sql<number>`count(*)` }).from(table).where(condition);
-      return result[0]?.count || 0;
+      return Number(result[0]?.count || 0);
     }
     const result = await db.select({ count: sql<number>`count(*)` }).from(table);
-    return result[0]?.count || 0;
+    return Number(result[0]?.count || 0);
   } catch {
     return 0;
   }
@@ -207,10 +214,10 @@ async function getSum(table: any, column: any, condition?: any): Promise<number>
   try {
     if (condition) {
       const result = await db.select({ sum: sql<number>`coalesce(sum(${column}), 0)` }).from(table).where(condition);
-      return result[0]?.sum || 0;
+      return Number(result[0]?.sum || 0);
     }
     const result = await db.select({ sum: sql<number>`coalesce(sum(${column}), 0)` }).from(table);
-    return result[0]?.sum || 0;
+    return Number(result[0]?.sum || 0);
   } catch {
     return 0;
   }
@@ -232,30 +239,29 @@ async function getTodayRevenue(date: string): Promise<number> {
 
 async function getBookingsByService() {
   try {
+    const eligibleStatuses = ['pending', 'confirmed', 'completed'] as const;
     const results = await db.select({
-      serviceId: bookings.customerId,
+      serviceId: bookingServices.serviceId,
+      serviceName: bookingServices.serviceNameSnapshot,
       count: sql<number>`count(*)`,
-    }).from(bookings)
-      .groupBy(bookings.customerId)
+    }).from(bookingServices)
+      .innerJoin(bookings, eq(bookings.id, bookingServices.bookingId))
+      .where(inArray(bookings.status, eligibleStatuses as unknown as string[]))
+      .groupBy(bookingServices.serviceId, bookingServices.serviceNameSnapshot)
       .orderBy(desc(sql`count(*)`))
       .limit(5);
 
-    const serviceCounts = await Promise.all(results.map(async (r: any) => {
-      const service = await db.query.services.findFirst({
-        where: eq(services.id, r.serviceId),
-      });
-      return {
-        serviceId: r.serviceId,
-        serviceName: service?.name || 'Unknown',
-        count: r.count,
-      };
-    }));
+    const totalResult = await db.select({ count: sql<number>`count(*)` })
+      .from(bookingServices)
+      .innerJoin(bookings, eq(bookings.id, bookingServices.bookingId))
+      .where(inArray(bookings.status, eligibleStatuses as unknown as string[]));
+    const total = Number(totalResult[0]?.count || 0);
 
-    const total = serviceCounts.reduce((sum: number, s: any) => sum + s.count, 0);
-
-    return serviceCounts.map(s => ({
-      ...s,
-      percentage: total > 0 ? s.count / total : 0,
+    return results.map((service) => ({
+      serviceId: service.serviceId,
+      serviceName: service.serviceName,
+      count: Number(service.count || 0),
+      percentage: total > 0 ? Number(service.count || 0) / total : 0,
     }));
   } catch {
     return [];
@@ -265,7 +271,7 @@ async function getBookingsByService() {
 async function getPeakHours() {
   try {
     const bookingsList = await db.query.bookings.findMany({
-      where: eq(bookings.status, 'confirmed'),
+      where: inArray(bookings.status, ['pending', 'confirmed', 'completed']),
     });
 
     const hourCounts: Record<string, number> = {};
@@ -285,23 +291,12 @@ async function getPeakHours() {
 
 async function getRepeatCustomerCount(): Promise<number> {
   try {
-    const customers = await db.query.users.findMany();
-    let repeatCount = 0;
-
-    for (const customer of customers) {
-      const userBookings = await db.query.bookings.findMany({
-        where: eq(bookings.customerId, customer.id),
-        with: {
-          // This won't work with the current schema - simplified
-        },
-      });
-
-      if (userBookings.length > 1) {
-        repeatCount++;
-      }
-    }
-
-    return repeatCount;
+    const rows = await db.select({ customerId: bookings.customerId })
+      .from(bookings)
+      .where(inArray(bookings.status, ['pending', 'confirmed', 'completed']))
+      .groupBy(bookings.customerId)
+      .having(sql`count(*) > 1`);
+    return rows.length;
   } catch {
     return 0;
   }
