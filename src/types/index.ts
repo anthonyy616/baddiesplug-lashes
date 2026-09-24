@@ -17,6 +17,7 @@ export type AvailabilityMode = 'available' | 'blocked';
 export type EmailEventType =
   | 'booking.requested'
   | 'booking.confirmed'
+  | 'booking.admin_new'
   | 'booking.customer_cancelled'
   | 'booking.admin_cancelled'
   | 'booking.rescheduled'

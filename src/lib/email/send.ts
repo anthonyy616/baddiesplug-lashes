@@ -14,12 +14,24 @@ export interface EmailOptions {
  */
 export async function sendEmail(options: EmailOptions): Promise<{ success: boolean; error?: string }> {
   try {
-    await resend.emails.send({
-      from: process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev',
+    const from = process.env.RESEND_FROM_EMAIL?.trim();
+    if (!from || from === 'onboarding@resend.dev') {
+      return {
+        success: false,
+        error: 'RESEND_FROM_EMAIL must be a sender address on a verified Resend domain.',
+      };
+    }
+
+    const { error } = await resend.emails.send({
+      from,
       to: options.to,
       subject: options.subject,
       html: options.html,
     });
+
+    if (error) {
+      return { success: false, error: error.message || 'Resend rejected the email' };
+    }
 
     return { success: true };
   } catch (error) {

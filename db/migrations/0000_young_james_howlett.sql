@@ -47,7 +47,7 @@ CREATE TABLE "bookings" (
 	"appointment_date" varchar(10) NOT NULL,
 	"start_time" varchar(5) NOT NULL,
 	"end_time" varchar(5) NOT NULL,
-	"status" varchar(20) DEFAULT 'pending' NOT NULL,
+	"status" varchar(20) DEFAULT 'confirmed' NOT NULL,
 	"phone" varchar(20) NOT NULL,
 	"customer_notes" text,
 	"subtotal" integer NOT NULL,

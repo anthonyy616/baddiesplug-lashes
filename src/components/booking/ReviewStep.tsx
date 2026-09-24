@@ -95,8 +95,8 @@ export default function ReviewStep({
       </section>
 
       <p className="text-xs text-ink-secondary dark:text-ink-dark-secondary">
-        Your booking is submitted for approval — payment is arranged separately via WhatsApp after
-        review. The required deposit is due once your booking is confirmed.
+        Your booking is auto-approved — payment is arranged separately via WhatsApp. The required
+        deposit is due to secure your confirmed appointment.
       </p>
     </div>
   );

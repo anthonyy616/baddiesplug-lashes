@@ -6,6 +6,7 @@ import type { EmailEventType } from '@/types';
 import {
   generateBookingRequestEmail,
   generateBookingConfirmationEmail,
+  generateAdminBookingEmail,
   generateCancellationEmail,
   generateAppointmentReminderEmail,
   generateBookingRescheduledEmail,
@@ -166,6 +167,8 @@ function emailSubject(eventType: EmailEventType, payload: Record<string, unknown
       return `Booking request received — ${reference}`;
     case 'booking.confirmed':
       return `Booking confirmed — ${reference}`;
+    case 'booking.admin_new':
+      return `New booking received — ${reference}`;
     case 'booking.customer_cancelled':
       return `Booking cancelled — ${reference}`;
     case 'booking.admin_cancelled':
@@ -212,6 +215,21 @@ function renderEmailHtml(eventType: EmailEventType, payload: Record<string, unkn
         addons: arr('addons'),
         total: Number(payload.total ?? 0),
         depositRequired: Number(payload.depositRequired ?? 0),
+      });
+    case 'booking.admin_new':
+      return generateAdminBookingEmail({
+        customerName: str('customerName'),
+        customerEmail: str('customerEmail'),
+        reference: str('reference'),
+        date: str('date'),
+        startTime: str('startTime'),
+        endTime: str('endTime'),
+        services: arr('services'),
+        addons: arr('addons'),
+        total: Number(payload.total ?? 0),
+        depositRequired: Number(payload.depositRequired ?? 0),
+        phone: str('phone'),
+        notes: payload.notes ? str('notes') : undefined,
       });
     case 'booking.customer_cancelled':
     case 'booking.admin_cancelled':

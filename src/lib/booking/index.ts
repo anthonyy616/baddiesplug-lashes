@@ -156,6 +156,31 @@ export async function createBooking(
           depositRequired: priceSnapshot.depositRequired,
         },
       });
+
+      const adminEmail = process.env.ADMIN_EMAIL?.trim();
+      if (adminEmail) {
+        await queueEmailEvent({
+          eventType: 'booking.admin_new',
+          recipient: adminEmail,
+          bookingId,
+          payload: {
+            customerName: user.name,
+            customerEmail: user.email,
+            phone,
+            notes: notes || undefined,
+            reference,
+            date,
+            startTime,
+            endTime,
+            services: priceSnapshot.services.map((s) => s.name),
+            addons: priceSnapshot.addons.map((a) => a.name),
+            total: priceSnapshot.total,
+            depositRequired: priceSnapshot.depositRequired,
+          },
+        });
+      } else {
+        console.warn('ADMIN_EMAIL is not configured; booking admin email was not queued.');
+      }
     });
 
     // WhatsApp deep link for payment instructions (not an API dependency)

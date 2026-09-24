@@ -89,6 +89,13 @@ export default async function AdminBookingDetailPage({ params }: PageProps) {
                 {booking.status.replace('_', ' ')}
               </span>
             </div>
+            <p className="text-sm text-gray-600">
+              {booking.status === 'confirmed'
+                ? 'Auto-approved. Mark as completed only after the appointment has finished.'
+                : booking.status === 'completed'
+                  ? 'Appointment completed.'
+                  : 'Legacy booking status.'}
+            </p>
 
             {previousBooking && (
               <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">

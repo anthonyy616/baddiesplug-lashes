@@ -20,19 +20,24 @@ export default function Success({ reference, whatsappUrl }: SuccessProps) {
   return (
     <div className="bg-white dark:bg-surface-dark rounded-xl border border-line dark:border-line-dark p-6 sm:p-10 text-center">
       {/* Pending badge */}
-      <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-burgundy/10 dark:bg-burgundy/20 text-burgundy dark:text-burgundy-lifted text-sm font-medium">
+        <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-green-100 dark:bg-green-950/40 text-green-800 dark:text-green-300 text-sm font-medium">
         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            <path d="M5 12l4 4L19 6" stroke="currentColor" strokeWidth="2" fill="none" />
         </svg>
-        Pending approval
+          Booking confirmed
       </span>
 
       <h1 className="font-display text-3xl text-ink dark:text-ink-dark mt-6 mb-3">
-        We&apos;ve received your request
+          Your booking is confirmed
       </h1>
       <p className="text-ink-secondary dark:text-ink-dark-secondary max-w-md mx-auto">
-        You&apos;ll get a confirmation once your booking is approved — usually within a few hours.
+          Your booking is auto-approved by our system. You will receive a confirmation by email, and if we need to reschedule, we will contact you by email or WhatsApp.
       </p>
+
+      <div className="mt-5 mx-auto max-w-md rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-left text-sm text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-200">
+        <p className="font-semibold">Can&apos;t find the email?</p>
+        <p className="mt-1">Check your Spam or Promotions folder. If you find it there, choose <span className="font-semibold">Report not spam</span> or move it to your inbox so future booking updates arrive normally.</p>
+      </div>
 
       {/* Reference */}
       <div className="mt-8 inline-block bg-surface-inset dark:bg-surface-inset-dark border border-line dark:border-line-dark rounded-xl px-8 py-5">

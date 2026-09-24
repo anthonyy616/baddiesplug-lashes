@@ -171,8 +171,8 @@ export default async function BookingDetailPage({ params }: PageProps) {
               </div>
               {booking.status === 'pending' && (
                 <div className="mt-4 p-4 bg-burgundy/10 rounded-lg">
-                  <p className="text-sm text-burgundy font-medium">Pending Admin Approval</p>
-                  <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">Your booking is pending approval. You'll receive a confirmation email once approved.</p>
+                  <p className="text-sm text-burgundy font-medium">Awaiting confirmation</p>
+                  <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">This legacy booking is still awaiting confirmation. New bookings are auto-approved by our system.</p>
                 </div>
               )}
             </div>

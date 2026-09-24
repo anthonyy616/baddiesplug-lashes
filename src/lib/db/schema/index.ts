@@ -200,7 +200,7 @@ export const bookings = pgTable('bookings', {
   appointmentDate: varchar('appointment_date', { length: 10 }).notNull(), // YYYY-MM-DD
   startTime: varchar('start_time', { length: 5 }).notNull(), // HH:MM
   endTime: varchar('end_time', { length: 5 }).notNull(), // HH:MM
-  status: varchar('status', { length: 20 }).notNull().default('pending'),
+  status: varchar('status', { length: 20 }).notNull().default('confirmed'),
   phone: varchar('phone', { length: 20 }).notNull(),
   customerNotes: text('customer_notes'),
   subtotal: integer('subtotal').notNull(), // NGN kobo

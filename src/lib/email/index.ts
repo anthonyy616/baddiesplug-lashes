@@ -8,6 +8,7 @@ export {
 } from './events';
 export {
   generateBookingConfirmationEmail,
+  generateAdminBookingEmail,
   generateBookingRequestEmail,
   generateCancellationEmail,
   generateAppointmentReminderEmail,

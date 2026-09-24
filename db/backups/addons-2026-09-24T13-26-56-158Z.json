@@ -1,0 +1,52 @@
+[
+  {
+    "id": "f0c7ece8-4a94-4caf-b03f-d7273d11924e",
+    "name": "Bottom Lashes",
+    "description": "Customised bottom lash extensions for extra definition. Price shown is for the full (dramatic) option; subtle options like the ₦10,000 option are available in-salon, if you are interested in this option just specify in the \"Notes\" section when Booking.",
+    "price": 1500000,
+    "is_active": true,
+    "display_order": 2,
+    "created_at": "2026-09-23T18:29:44.714Z",
+    "updated_at": "2026-09-24T10:56:35.687Z"
+  },
+  {
+    "id": "4968352a-3d28-4235-840f-1ed679120383",
+    "name": "Lash Refill — Baddie Extra (Mega Volume)",
+    "description": "Two-week maintenance appointment to restore the maximum fullness and density of your existing Baddie Extra set. Recommended every 2 weeks. If too much of the original set has shed, a new full set may be required.",
+    "price": 3000000,
+    "is_active": false,
+    "display_order": 3,
+    "created_at": "2026-09-23T18:29:44.714Z",
+    "updated_at": "2026-09-24T11:36:38.572Z"
+  },
+  {
+    "id": "907b2a1b-3ae9-42ba-8f14-65195162b469",
+    "name": "Lash Refill — I Am Baddie Full (Volume)",
+    "description": "Two-week maintenance appointment to restore the fullness, density and shape of your existing I Am Baddie Full set. Recommended every 2 weeks. Applies to existing Baddies Plug sets suitable for a refill.",
+    "price": 2500000,
+    "is_active": false,
+    "display_order": 2,
+    "created_at": "2026-09-23T18:29:44.714Z",
+    "updated_at": "2026-09-24T11:36:38.572Z"
+  },
+  {
+    "id": "31934059-c91f-4fae-80e9-dff371dec12f",
+    "name": "Lash Refill — The Soft Baddie (Hybrid)",
+    "description": "Two-week maintenance appointment to refresh your existing Soft Baddie set, replacing lashes that have naturally shed and restoring fullness and definition. Recommended every 2 weeks. Applies to existing Baddies Plug sets suitable for a refill.",
+    "price": 1900000,
+    "is_active": false,
+    "display_order": 1,
+    "created_at": "2026-09-23T18:29:44.714Z",
+    "updated_at": "2026-09-24T11:36:38.572Z"
+  },
+  {
+    "id": "b677e917-b33e-467e-be9f-cb73e1d189a9",
+    "name": "Lash Removal",
+    "description": "Professional removal of existing lash extensions using a gentle removal process designed to protect your natural lashes. Removal of another lash artist's work may be required before a new set can be applied.",
+    "price": 500000,
+    "is_active": true,
+    "display_order": 1,
+    "created_at": "2026-09-23T18:29:44.714Z",
+    "updated_at": "2026-09-24T10:56:35.687Z"
+  }
+]
