@@ -12,15 +12,14 @@ import {
   generateBookingRescheduledEmail,
 } from './templates';
 import { sendEmail } from './send';
-import { inngest } from '@/inngest/client';
 
 /**
  * Durable, retryable email events.
  *
  * Email failures must never roll back a booking transaction. We persist an
  * email_events row (inside the booking transaction where applicable) and
- * dispatch asynchronously via Inngest events; failed events are retried
- * automatically by Inngest functions.
+ * dispatch asynchronously; failed events are retried by the protected
+ * scheduled jobs endpoint.
  */
 
 const MAX_ATTEMPTS = 5;
@@ -48,25 +47,6 @@ export async function queueEmailEvent(input: QueueEmailInput): Promise<void> {
     scheduledFor: input.scheduledFor ?? new Date(),
   });
   
-  // Emit Inngest event to trigger sending (async, non-blocking)
-  // The booking transaction commits independently of this
-  try {
-    await inngest.send({
-      name: 'email.requested',
-      data: {
-        eventId: id,
-        eventType: input.eventType,
-        recipient: input.recipient,
-        bookingId: input.bookingId,
-        scheduledFor: input.scheduledFor,
-      },
-      // Idempotency key: same event ID = same email, safe to retry
-      id: `email-${id}`,
-    });
-  } catch (error) {
-    // Log but don't throw — email_events row is the durable record
-    console.error('Failed to emit email.requested event:', error);
-  }
 }
 
 /**
