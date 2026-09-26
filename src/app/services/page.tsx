@@ -3,6 +3,7 @@ import { db } from '@/lib/db';
 import { services, serviceImages } from '@/lib/db/schema';
 import { eq, and } from 'drizzle-orm';
 import SiteNav from '@/components/SiteNav';
+import { getPublicUrl } from '@/lib/storage';
 
 export const dynamic = 'force-dynamic';
 
@@ -121,7 +122,7 @@ async function ServiceCover({ serviceId }: { serviceId: string }) {
     <div className="aspect-[4/3] overflow-hidden">
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
-        src={image.publicUrl}
+        src={getPublicUrl(image.storageKey)}
         alt={image.altText || 'Service image'}
         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
       />

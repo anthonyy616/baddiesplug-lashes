@@ -1,5 +1,6 @@
 import { db } from '@/lib/db';
 import { services, addons, bookingServices, bookingAddons, serviceImages } from '@/lib/db/schema';
+import { getPublicUrl } from '@/lib/storage';
 import { eq, inArray } from 'drizzle-orm';
 import { v4 as uuidv4 } from 'uuid';
 import type { PriceSnapshot } from '@/types';
@@ -169,7 +170,10 @@ export async function getServiceBySlugWithImages(slug: string) {
 
   return {
     ...service,
-    images,
+    images: images.map((image) => ({
+      ...image,
+      publicUrl: getPublicUrl(image.storageKey),
+    })),
   };
 }
 
@@ -190,7 +194,10 @@ export async function getServiceWithImages(id: string) {
 
   return {
     ...service,
-    images,
+    images: images.map((image) => ({
+      ...image,
+      publicUrl: getPublicUrl(image.storageKey),
+    })),
   };
 }
 

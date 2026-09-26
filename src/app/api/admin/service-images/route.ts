@@ -73,7 +73,12 @@ export async function GET(request: NextRequest) {
       orderBy: [asc(serviceImages.displayOrder)],
     });
 
-    return NextResponse.json({ images });
+    return NextResponse.json({
+      images: images.map((image) => ({
+        ...image,
+        publicUrl: getPublicUrl(image.storageKey),
+      })),
+    });
   } catch (error) {
     if (error instanceof Error && error.message === 'AdminUnauthorized') {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });

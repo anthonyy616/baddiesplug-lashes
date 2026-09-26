@@ -15,7 +15,9 @@
     "db:seed:admin": "tsx db/seed/index.ts",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:oauth": "vitest run tests/auth/oauth.test.ts"
+    "test:oauth": "vitest run tests/auth/oauth.test.ts",
+    "clean": "rm -rf .next node_modules/.cache",
+    "clean:install": "rm -rf .next node_modules && npm ci"
   },
   "dependencies": {
     "@auth/drizzle-adapter": "^1.11.3",

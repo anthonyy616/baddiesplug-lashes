@@ -56,7 +56,14 @@ export function isStorageConfigured(): boolean {
 
 /** Generate public URL for a storage key (service images). */
 export function getPublicUrl(storageKey: string): string {
-  return `${R2_PUBLIC_URL || ''}/${storageKey}`.replace(/([^:])\/\//g, '$1/');
+  const configuredUrl = R2_PUBLIC_URL?.trim() || '';
+  const baseUrl = configuredUrl
+    ? /^https?:\/\//i.test(configuredUrl)
+      ? configuredUrl
+      : `https://${configuredUrl}`
+    : '';
+
+  return `${baseUrl.replace(/\/+$/, '')}/${storageKey.replace(/^\/+/, '')}`;
 }
 
 /**
