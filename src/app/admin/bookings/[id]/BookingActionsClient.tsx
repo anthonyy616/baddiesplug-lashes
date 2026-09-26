@@ -44,7 +44,8 @@ export default function BookingActionsClient({ bookingId, status }: BookingActio
     }
   };
 
-  const showActions = status === 'pending' || status === 'confirmed';
+  const showActions =
+    status === 'pending' || status === 'confirmed' || status === 'approved';
 
   if (!showActions) return null;
 
@@ -72,6 +73,14 @@ export default function BookingActionsClient({ bookingId, status }: BookingActio
       {status === 'confirmed' && (
         <>
           <button
+            onClick={() => handleAction('approve')}
+            disabled={isLoading !== null}
+            className="w-full px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50"
+            title="Approve after reviewing payment proof"
+          >
+            {isLoading === 'approve' ? 'Approving...' : 'Approve Payment'}
+          </button>
+          <button
             onClick={() => handleAction('complete')}
             disabled={isLoading !== null}
             className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
@@ -81,7 +90,8 @@ export default function BookingActionsClient({ bookingId, status }: BookingActio
           <button
             onClick={() => handleAction('no_show')}
             disabled={isLoading !== null}
-            className="w-full px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 disabled:opacity-50"
+            className="w-full px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:opacity-50"
+            title="Manually mark as no-show"
           >
             {isLoading === 'no_show' ? '...' : 'Mark as No Show'}
           </button>
@@ -95,7 +105,34 @@ export default function BookingActionsClient({ bookingId, status }: BookingActio
         </>
       )}
 
-      {status === 'confirmed' && (
+      {status === 'approved' && (
+        <>
+          <button
+            onClick={() => handleAction('complete')}
+            disabled={isLoading !== null}
+            className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+          >
+            {isLoading === 'complete' ? '...' : 'Mark as Completed'}
+          </button>
+          <button
+            onClick={() => handleAction('no_show')}
+            disabled={isLoading !== null}
+            className="w-full px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:opacity-50"
+            title="Manually mark as no-show"
+          >
+            {isLoading === 'no_show' ? '...' : 'Mark as No Show'}
+          </button>
+          <button
+            onClick={() => handleAction('cancel')}
+            disabled={isLoading !== null}
+            className="w-full px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
+          >
+            {isLoading === 'cancel' ? '...' : 'Cancel Booking'}
+          </button>
+        </>
+      )}
+
+      {(status === 'confirmed' || status === 'approved') && (
         <div className="border-t pt-4 mt-4">
           <button
             onClick={() => setShowReschedule(!showReschedule)}

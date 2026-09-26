@@ -5,7 +5,7 @@ import { eq, desc, and, or } from 'drizzle-orm';
 import Link from 'next/link';
 import { formatLagosTime, getCurrentLagosDate } from '@/lib/timezone';
 import BookingActions from '@/components/admin/BookingActions';
-import { pendingBookings, confirmedBookings, cancelledBookings, rejectedBookings, completedBookings, noShowBookings, todayBookings } from '@/lib/admin/bookings';
+import { pendingBookings, confirmedBookings, approvedBookings, ignoredBookings, cancelledBookings, rejectedBookings, completedBookings, noShowBookings, todayBookings } from '@/lib/admin/bookings';
 
 interface PageProps {
   searchParams: Promise<{ status?: string; search?: string }>;
@@ -17,9 +17,11 @@ export default async function AdminBookingsPage({ searchParams }: PageProps) {
   const status = params.status || 'all';
   const search = params.search || '';
 
-  const [pending, confirmed, cancelled, rejected, completed, noShow, today] = await Promise.all([
+  const [pending, confirmed, approved, ignored, cancelled, rejected, completed, noShow, today] = await Promise.all([
     pendingBookings(),
     confirmedBookings(),
+    approvedBookings(),
+    ignoredBookings(),
     cancelledBookings(),
     rejectedBookings(),
     completedBookings(),
@@ -35,6 +37,12 @@ export default async function AdminBookingsPage({ searchParams }: PageProps) {
       break;
     case 'confirmed':
       filteredBookings = confirmed;
+      break;
+    case 'approved':
+      filteredBookings = approved;
+      break;
+    case 'ignored':
+      filteredBookings = ignored;
       break;
     case 'cancelled':
       filteredBookings = cancelled;
@@ -52,7 +60,10 @@ export default async function AdminBookingsPage({ searchParams }: PageProps) {
       filteredBookings = today;
       break;
     default:
-      filteredBookings = [...pending, ...confirmed, ...today];
+      // All view includes every status (including ignored and other history)
+      // without duplicates: each status list is disjoint, and 'today' rows are
+      // already present in their own status lists.
+      filteredBookings = [...pending, ...confirmed, ...approved, ...cancelled, ...rejected, ...completed, ...noShow, ...ignored];
   }
 
   // Apply search filter
@@ -125,6 +136,14 @@ export default async function AdminBookingsPage({ searchParams }: PageProps) {
           Confirmed
         </Link>
         <Link
+          href={`/admin/bookings?status=approved`}
+          className={`px-4 py-2 rounded-md text-sm font-medium ${
+            status === 'approved' ? 'bg-burgundy text-white' : 'text-gray-600 hover:bg-gray-100'
+          }`}
+        >
+          Approved
+        </Link>
+        <Link
           href={`/admin/bookings?status=completed`}
           className={`px-4 py-2 rounded-md text-sm font-medium ${
             status === 'completed' ? 'bg-burgundy text-white' : 'text-gray-600 hover:bg-gray-100'
@@ -147,6 +166,14 @@ export default async function AdminBookingsPage({ searchParams }: PageProps) {
           }`}
         >
           Rejected
+        </Link>
+        <Link
+          href={`/admin/bookings?status=ignored`}
+          className={`px-4 py-2 rounded-md text-sm font-medium ${
+            status === 'ignored' ? 'bg-burgundy text-white' : 'text-gray-600 hover:bg-gray-100'
+          }`}
+        >
+          Ignored
         </Link>
         <Link
           href={`/admin/bookings?status=no_show`}
@@ -225,10 +252,12 @@ function getStatusColors(): Record<string, string> {
   return {
     pending: 'bg-amber-100 text-amber-800',
     confirmed: 'bg-green-100 text-green-800',
+    approved: 'bg-emerald-100 text-emerald-800',
+    ignored: 'bg-stone-100 text-stone-600',
     cancelled: 'bg-red-100 text-red-800',
     rejected: 'bg-gray-100 text-gray-800',
     completed: 'bg-blue-100 text-blue-800',
-    no_show: 'bg-gray-100 text-gray-800',
+    no_show: 'bg-orange-100 text-orange-800',
   };
 }
 

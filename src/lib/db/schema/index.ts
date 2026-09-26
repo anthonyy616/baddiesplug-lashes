@@ -218,15 +218,16 @@ export const bookings = pgTable('bookings', {
   index('bookings_status_idx').on(table.status),
   index('bookings_created_at_idx').on(table.createdAt),
   // Active booking unique constraint to prevent double booking.
-  // Only pending/confirmed bookings occupy a slot; cancelled/rejected/completed
-  // bookings must not block it. See booking-rules.md.
+  // Only pending/confirmed/approved bookings occupy a slot; ignored, cancelled,
+  // rejected, completed, and no-show bookings must not block it.
+  // See src/lib/booking/lifecycle.ts and db/migrations/0009_*.sql.
   uniqueIndex('active_booking_slot_unique')
     .on(
       table.appointmentDate,
       table.startTime,
       table.endTime,
     )
-    .where(sql`status IN ('pending', 'confirmed')`),
+    .where(sql`status IN ('pending', 'confirmed', 'approved')`),
 ]);
 
 // Booking services table (historical snapshots)

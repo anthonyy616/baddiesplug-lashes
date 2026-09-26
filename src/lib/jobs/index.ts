@@ -125,12 +125,20 @@ export async function sendDueReminders(): Promise<number> {
 }
 
 /**
- * Mark confirmed bookings whose end time has passed as no_show.
- * Per requirements this is admin-only information; customers are never
- * notified. Admin can correct the status manually afterwards.
+ * Move untouched, past 'confirmed' bookings to 'ignored'.
+ *
+ * Per the lifecycle plan, the scheduled job must NEVER create 'no_show' —
+ * that is a manual admin outcome. Instead, bookings the admin never touched
+ * (still plain 'confirmed' after their end time passed) are auto-marked
+ * 'ignored': they remain visible in admin history, are hidden from customers,
+ * and release their time slot.
+ *
+ * Idempotent: only rows still in 'confirmed' are updated, so manually
+ * approved or manually no-show'd bookings are never overwritten, and re-runs
+ * process nothing.
  * Returns number transitioned.
  */
-export async function markNoShows(): Promise<number> {
+export async function markIgnoredBookings(): Promise<number> {
   const candidates = await db.query.bookings.findMany({
     where: and(
       eq(bookings.status, 'confirmed'),
@@ -139,7 +147,7 @@ export async function markNoShows(): Promise<number> {
   });
 
   const now = new Date();
-  const toMark: string[] = [];
+  const toIgnore: string[] = [];
 
   for (const booking of candidates) {
     try {
@@ -149,21 +157,21 @@ export async function markNoShows(): Promise<number> {
         endTime: booking.endTime,
       });
       if (end < now) {
-        toMark.push(booking.id);
+        toIgnore.push(booking.id);
       }
     } catch {
       continue;
     }
   }
 
-  if (toMark.length === 0) return 0;
+  if (toIgnore.length === 0) return 0;
 
   await db
     .update(bookings)
-    .set({ status: 'no_show', updatedAt: now })
-    .where(inArray(bookings.id, toMark));
+    .set({ status: 'ignored', updatedAt: now })
+    .where(inArray(bookings.id, toIgnore));
 
-  return toMark.length;
+  return toIgnore.length;
 }
 
 /**

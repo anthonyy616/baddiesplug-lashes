@@ -5,17 +5,21 @@ import { bookings, notifications, emailEvents, users, bookingServices, bookingAd
 import { eq, and, sql } from 'drizzle-orm';
 import { v4 as uuidv4 } from 'uuid';
 import { requireAdmin } from '@/lib/auth/types';
+import type { BookingStatus } from '@/types';
 import { queueEmailEvent, dispatchEmailEvent } from '@/lib/email/events';
 import { getBookingById } from '@/lib/booking';
+import { canTransition } from '@/lib/booking/lifecycle';
 import { isSlotAvailable } from '@/lib/availability';
 import { generateBookingReference } from '@/lib/pricing';
 
-// Valid transitions:
+// Valid transitions (canonical matrix in src/lib/booking/lifecycle.ts):
 //   pending   -> confirmed | rejected | cancelled   (existing pending bookings)
-//   confirmed -> completed | no_show | cancelled | rescheduled (new confirmed booking)
-// Auto-approval means new bookings are created as 'confirmed', so there is no
-// pending -> approve path for new bookings; approve/reject remain for any
-// pre-existing pending bookings.
+//   confirmed -> approved | no_show | completed | cancelled | rescheduled
+//   approved  -> no_show | completed | cancelled | rescheduled
+// Auto-approval means new bookings are created as 'confirmed'; admin manually
+// approves (payment proof review) via confirmed -> approved. No-show is a
+// manually assigned outcome from confirmed or approved. Ignored is created
+// ONLY by the scheduled job and is terminal.
 const actionSchema = z.object({
   action: z.enum(['approve', 'reject', 'cancel', 'complete', 'no_show', 'reschedule']),
   newDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
@@ -30,21 +34,30 @@ const actionSchema = z.object({
 );
 
 const ALLOWED_TRANSITIONS: Record<string, string[]> = {
-  approve: ['pending'],
+  approve: ['pending', 'confirmed'],
   reject: ['pending'],
-  cancel: ['pending', 'confirmed'],
-  complete: ['confirmed'],
-  no_show: ['confirmed'],
-  reschedule: ['confirmed'],
+  cancel: ['pending', 'confirmed', 'approved'],
+  complete: ['confirmed', 'approved'],
+  no_show: ['confirmed', 'approved'],
+  reschedule: ['confirmed', 'approved'],
 };
 
 const TARGET_STATUS: Record<string, string> = {
-  approve: 'confirmed',
+  approve: 'approved',
   reject: 'rejected',
   cancel: 'cancelled',
   complete: 'completed',
   no_show: 'no_show',
 };
+
+// Thrown inside the transaction when the guarded status update affects 0 rows
+// (another admin action changed the booking first). Maps to a 409 response.
+class ConcurrencyConflictError extends Error {
+  constructor() {
+    super('Booking was modified concurrently');
+    this.name = 'ConcurrencyConflictError';
+  }
+}
 
 export async function PATCH(
   request: NextRequest,
@@ -79,9 +92,20 @@ export async function PATCH(
       );
     }
 
+    // Defense in depth: also validate against the shared lifecycle matrix.
+    if (!canTransition(booking.status as BookingStatus, targetStatus as BookingStatus)) {
+      return NextResponse.json(
+        { error: `Invalid transition ${booking.status} -> ${targetStatus}` },
+        { status: 400 }
+      );
+    }
+
     const now = new Date();
 
     await db.transaction(async (tx) => {
+      // Concurrency-safe, idempotent update: the WHERE clause re-checks the
+      // current status, so a racing admin action cannot double-apply or clobber
+      // a newer status. If 0 rows match, another action already won.
       const updateValues: Record<string, unknown> = {
         status: targetStatus,
         updatedAt: now,
@@ -89,7 +113,17 @@ export async function PATCH(
       if (targetStatus === 'cancelled') updateValues.cancelledAt = now;
       if (targetStatus === 'completed') updateValues.completedAt = now;
 
-      await tx.update(bookings).set(updateValues).where(eq(bookings.id, id));      await tx.insert(notifications).values({
+      const updated = await tx
+        .update(bookings)
+        .set(updateValues)
+        .where(and(eq(bookings.id, id), eq(bookings.status, booking.status)))
+        .returning({ id: bookings.id });
+
+      if (updated.length === 0) {
+        throw new ConcurrencyConflictError();
+      }
+
+      await tx.insert(notifications).values({
         id: uuidv4(),
         type: `booking_${targetStatus}`,
         bookingId: id,
@@ -144,7 +178,7 @@ export async function PATCH(
           });
         }
 
-        // Reschedule: cancel old booking, create new confirmed booking
+        // Reschedule: cancel old booking, create new approved booking
         if (action === 'reschedule') {
           const newDate = parsed.data.newDate!;
           const newStartTime = parsed.data.newStartTime!;
@@ -160,11 +194,16 @@ export async function PATCH(
           const newReference = generateBookingReference();
           const rescheduleNow = new Date();
 
-          // Cancel the old booking
-          await tx
+          // Cancel the old booking (guarded on its current status)
+          const cancelledOld = await tx
             .update(bookings)
             .set({ status: 'cancelled', cancelledAt: rescheduleNow, updatedAt: rescheduleNow })
-            .where(eq(bookings.id, id));
+            .where(and(eq(bookings.id, id), eq(bookings.status, booking.status)))
+            .returning({ id: bookings.id });
+
+          if (cancelledOld.length === 0) {
+            throw new ConcurrencyConflictError();
+          }
 
           // Copy service/addon snapshots from old booking
           const oldServices = await tx.query.bookingServices.findMany({
@@ -292,6 +331,12 @@ export async function PATCH(
 
     return NextResponse.json({ success: true, status: targetStatus });
   } catch (error) {
+    if (error instanceof ConcurrencyConflictError) {
+      return NextResponse.json(
+        { error: 'Booking was updated by another action. Refresh and try again.' },
+        { status: 409 }
+      );
+    }
     if (error instanceof Error && (error.message === 'Unauthorized' || error.message === 'Forbidden')) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }

@@ -4,6 +4,9 @@ import { db } from '@/lib/db';
 import { bookings, users, payments, bookingServices } from '@/lib/db/schema';
 import { eq, desc, sql, and, inArray } from 'drizzle-orm';
 import { getCurrentLagosDate, getLagosTime } from '@/lib/timezone';
+import {
+  ENGAGEMENT_STATUSES,
+} from '@/lib/booking/lifecycle';
 import Link from 'next/link';
 
 export default async function AnalyticsPage() {
@@ -21,6 +24,8 @@ export default async function AnalyticsPage() {
     totalBookings,
     pendingCount,
     confirmedCount,
+    approvedCount,
+    ignoredCount,
     completedCount,
     cancelledCount,
     rejectedCount,
@@ -33,11 +38,14 @@ export default async function AnalyticsPage() {
     getCount(bookings),
     getCount(bookings, eq(bookings.status, 'pending')),
     getCount(bookings, eq(bookings.status, 'confirmed')),
+    getCount(bookings, eq(bookings.status, 'approved')),
+    getCount(bookings, eq(bookings.status, 'ignored')),
     getCount(bookings, eq(bookings.status, 'completed')),
     getCount(bookings, eq(bookings.status, 'cancelled')),
     getCount(bookings, eq(bookings.status, 'rejected')),
     getCount(bookings, eq(bookings.status, 'no_show')),
-    getSum(bookings, bookings.total),
+    // Revenue includes ONLY approved and completed bookings (see lifecycle).
+    getSum(bookings, bookings.total, inArray(bookings.status, ['approved', 'completed'] as unknown as string[])),
     getSum(payments, payments.amount, eq(payments.paymentType, 'deposit')),
     getTodayRevenue(today),
   ]);
@@ -74,17 +82,21 @@ export default async function AnalyticsPage() {
       </div>
 
       {/* Booking Status Breakdown */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="bg-white rounded-lg shadow p-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">          <div className="bg-white rounded-lg shadow p-6">
           <h2 className="font-semibold text-gray-900 mb-4">Booking Status</h2>
           <div className="space-y-4">
             <StatusBar label="Pending" count={pendingCount} color="amber" total={totalBookings} />
-            <StatusBar label="Confirmed" count={confirmedCount} color="green" total={totalBookings} />
+            <StatusBar label="Confirmed (auto, awaiting manual approval)" count={confirmedCount} color="green" total={totalBookings} />
+            <StatusBar label="Approved (manually approved)" count={approvedCount} color="emerald" total={totalBookings} />
+            <StatusBar label="Ignored (auto-archived)" count={ignoredCount} color="stone" total={totalBookings} />
             <StatusBar label="Completed" count={completedCount} color="blue" total={totalBookings} />
             <StatusBar label="Cancelled" count={cancelledCount} color="red" total={totalBookings} />
             <StatusBar label="Rejected" count={rejectedCount} color="gray" total={totalBookings} />
-            <StatusBar label="No Show" count={noShowCount} color="purple" total={totalBookings} />
+            <StatusBar label="No Show (manual)" count={noShowCount} color="orange" total={totalBookings} />
           </div>
+          <p className="mt-4 text-xs text-gray-500">
+            Revenue counts only approved and completed bookings. Confirmed bookings are auto-approved by the system and are not counted as revenue until an admin approves them.
+          </p>
         </div>
 
         <div className="bg-white rounded-lg shadow p-6">
@@ -180,9 +192,12 @@ function StatusBar({ label, count, color, total }: { label: string; count: numbe
   const colorMap: Record<string, string> = {
     amber: 'bg-amber-500',
     green: 'bg-green-500',
+    emerald: 'bg-emerald-500',
+    stone: 'bg-stone-500',
     blue: 'bg-blue-500',
     red: 'bg-red-500',
     gray: 'bg-gray-500',
+    orange: 'bg-orange-500',
     purple: 'bg-purple-500',
   };
 
@@ -228,7 +243,7 @@ async function getTodayRevenue(date: string): Promise<number> {
     const todayBookings = await db.query.bookings.findMany({
       where: and(
         eq(bookings.appointmentDate, date),
-        eq(bookings.status, 'confirmed')
+        inArray(bookings.status, ['approved', 'completed'] as unknown as string[])
       ),
     });
     return todayBookings.reduce((sum, b) => sum + (b.total || 0), 0);
@@ -239,7 +254,9 @@ async function getTodayRevenue(date: string): Promise<number> {
 
 async function getBookingsByService() {
   try {
-    const eligibleStatuses = ['pending', 'confirmed', 'completed'] as const;
+    // Engagement metrics include confirmed/approved/completed (+pending) for
+    // backward compatibility — from the shared lifecycle module.
+    const eligibleStatuses = ENGAGEMENT_STATUSES;
     const results = await db.select({
       serviceId: bookingServices.serviceId,
       serviceName: bookingServices.serviceNameSnapshot,
@@ -271,7 +288,7 @@ async function getBookingsByService() {
 async function getPeakHours() {
   try {
     const bookingsList = await db.query.bookings.findMany({
-      where: inArray(bookings.status, ['pending', 'confirmed', 'completed']),
+      where: inArray(bookings.status, ENGAGEMENT_STATUSES as unknown as string[]),
     });
 
     const hourCounts: Record<string, number> = {};
@@ -293,7 +310,7 @@ async function getRepeatCustomerCount(): Promise<number> {
   try {
     const rows = await db.select({ customerId: bookings.customerId })
       .from(bookings)
-      .where(inArray(bookings.status, ['pending', 'confirmed', 'completed']))
+      .where(inArray(bookings.status, ENGAGEMENT_STATUSES as unknown as string[]))
       .groupBy(bookings.customerId)
       .having(sql`count(*) > 1`);
     return rows.length;

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import {
   queueAppointmentReminders,
   sendDueReminders,
-  markNoShows,
+  markIgnoredBookings,
   cleanupExpiredReferenceImages,
   retryEmails,
 } from '@/lib/jobs';
@@ -13,8 +13,13 @@ import {
  * Vercel Cron sends the secret automatically as an Authorization header;
  * external schedulers can use ?key= or Bearer.
  *
- * This route is the scheduler for reminders, email retries, no-show updates,
- * and expired reference-image cleanup.
+ * This route is the scheduler for reminders, email retries, ignored-booking
+ * processing, and expired reference-image cleanup.
+ *
+ * Note: this job NEVER creates 'no_show' — that is a manual admin outcome.
+ * Untouched, past 'confirmed' bookings are auto-marked 'ignored' here.
+ * The Vercel cron runs daily, so ignored processing happens on the next
+ * scheduled run after the appointment has passed.
  */
 function isAuthorized(request: NextRequest): boolean {
   const secret = process.env.CRON_SECRET;
@@ -39,7 +44,7 @@ export async function GET(request: NextRequest) {
   const jobs: [string, () => Promise<number>][] = [
     ['remindersQueued', queueAppointmentReminders],
     ['remindersSent', sendDueReminders],
-    ['noShowsMarked', markNoShows],
+    ['ignoredMarked', markIgnoredBookings],
     ['imagesDeleted', cleanupExpiredReferenceImages],
     ['emailsRetried', retryEmails],
   ];

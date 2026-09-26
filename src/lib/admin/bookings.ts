@@ -21,6 +21,24 @@ export async function confirmedBookings() {
   return enrichBookings(confirmed);
 }
 
+export async function approvedBookings() {
+  const approved = await db.query.bookings.findMany({
+    where: eq(bookings.status, 'approved'),
+    orderBy: [desc(bookings.createdAt)],
+  });
+
+  return enrichBookings(approved);
+}
+
+export async function ignoredBookings() {
+  const ignored = await db.query.bookings.findMany({
+    where: eq(bookings.status, 'ignored'),
+    orderBy: [desc(bookings.createdAt)],
+  });
+
+  return enrichBookings(ignored);
+}
+
 export async function cancelledBookings() {
   const cancelled = await db.query.bookings.findMany({
     where: eq(bookings.status, 'cancelled'),
@@ -64,6 +82,7 @@ export async function todayBookings() {
       eq(bookings.appointmentDate, today),
       or(
         eq(bookings.status, 'confirmed'),
+        eq(bookings.status, 'approved'),
         eq(bookings.status, 'completed'),
         eq(bookings.status, 'no_show')
       )

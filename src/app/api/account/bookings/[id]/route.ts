@@ -33,13 +33,17 @@ export async function DELETE(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
 
-    // Check if cancellable
-    if (booking.status !== 'pending' && booking.status !== 'confirmed') {
+    // Check if cancellable (pending/confirmed/approved occupy slots; cancelled is idempotent-blocked)
+    if (
+      booking.status !== 'pending' &&
+      booking.status !== 'confirmed' &&
+      booking.status !== 'approved'
+    ) {
       return NextResponse.json({ error: 'Booking cannot be cancelled' }, { status: 400 });
     }
 
     // Check cancellation cutoff (1 hour before appointment)
-    if (booking.status === 'confirmed') {
+    if (booking.status === 'confirmed' || booking.status === 'approved') {
       const appointmentEnd = new Date(booking.appointmentDate + 'T' + booking.endTime);
       const oneHourBefore = new Date(appointmentEnd.getTime() - 60 * 60 * 1000);
 

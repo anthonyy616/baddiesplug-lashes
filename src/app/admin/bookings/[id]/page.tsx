@@ -80,10 +80,12 @@ export default async function AdminBookingDetailPage({ params }: PageProps) {
               <span className={`px-3 py-1 text-sm rounded-full ${
                 booking.status === 'pending' ? 'bg-amber-100 text-amber-800' :
                 booking.status === 'confirmed' ? 'bg-green-100 text-green-800' :
+                booking.status === 'approved' ? 'bg-emerald-100 text-emerald-800' :
+                booking.status === 'ignored' ? 'bg-stone-100 text-stone-600' :
                 booking.status === 'completed' ? 'bg-blue-100 text-blue-800' :
                 booking.status === 'cancelled' ? 'bg-red-100 text-red-800' :
                 booking.status === 'rejected' ? 'bg-gray-100 text-gray-800' :
-                booking.status === 'no_show' ? 'bg-gray-100 text-gray-800' :
+                booking.status === 'no_show' ? 'bg-orange-100 text-orange-800' :
                 'bg-gray-100 text-gray-800'
               }`}>
                 {booking.status.replace('_', ' ')}
@@ -91,10 +93,16 @@ export default async function AdminBookingDetailPage({ params }: PageProps) {
             </div>
             <p className="text-sm text-gray-600">
               {booking.status === 'confirmed'
-                ? 'Auto-approved. Mark as completed only after the appointment has finished.'
-                : booking.status === 'completed'
-                  ? 'Appointment completed.'
-                  : 'Legacy booking status.'}
+                ? 'Auto-approved by the system. Approve after reviewing payment proof; no-show and complete are manual outcomes.'
+                : booking.status === 'approved'
+                  ? 'Manually approved after payment proof review. Mark as completed or no-show after the appointment.'
+                  : booking.status === 'no_show'
+                    ? 'Manually assigned no-show outcome.'
+                    : booking.status === 'ignored'
+                      ? 'Auto-ignored: untouched past booking. Hidden from the customer and the time slot has been released.'
+                      : booking.status === 'completed'
+                        ? 'Appointment completed.'
+                        : 'Legacy booking status.'}
             </p>
 
             {previousBooking && (

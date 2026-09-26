@@ -30,7 +30,9 @@ export default async function BookingDetailPage({ params }: PageProps) {
 
   // Customers may cancel before the 1-hour cutoff (server re-validates on the action)
   const canCancel =
-    (booking.status === 'pending' || booking.status === 'confirmed') &&
+    (booking.status === 'pending' ||
+      booking.status === 'confirmed' ||
+      booking.status === 'approved') &&
     new Date() < getCancellationDeadline({
       date: booking.appointmentDate,
       startTime: booking.startTime,

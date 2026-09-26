@@ -64,6 +64,9 @@ export default function Success({ reference, whatsappUrl }: SuccessProps) {
             Send payment details via WhatsApp
           </a>
           <p className="text-xs text-ink-secondary dark:text-ink-dark-secondary mt-2">
+            Your booking has been auto approved by our system. In order to get approved and confirmed, please send us a message on WhatsApp through the link below with proof of payment to get this booking approved. Thank you.
+          </p>
+          <p className="text-xs text-ink-secondary dark:text-ink-dark-secondary mt-1">
             Your booking details and deposit amount are pre-filled in the message.
           </p>
         </div>

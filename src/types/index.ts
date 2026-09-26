@@ -5,6 +5,8 @@ export type ServiceCategory = 'lash' | 'eyebrow';
 export type BookingStatus =
   | 'pending'
   | 'confirmed'
+  | 'approved'
+  | 'ignored'
   | 'cancelled'
   | 'rejected'
   | 'completed'
@@ -241,7 +243,10 @@ export interface AnalyticsData {
   };
   bookings: {
     total: number;
+    pending: number;
     confirmed: number;
+    approved: number;
+    ignored: number;
     completed: number;
     cancelled: number;
     rejected: number;

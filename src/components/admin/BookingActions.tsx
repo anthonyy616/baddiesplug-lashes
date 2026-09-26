@@ -37,12 +37,15 @@ export default function BookingActions({ booking }: BookingActionsProps) {
     }
   };
 
-  const showActions = booking.status === 'pending' || booking.status === 'confirmed';
+  const showActions =
+    booking.status === 'pending' ||
+    booking.status === 'confirmed' ||
+    booking.status === 'approved';
 
   if (!showActions) return null;
 
   return (
-    <div className="flex gap-2">
+    <div className="flex gap-2 flex-wrap">
       {booking.status === 'pending' && (
         <>
           <button
@@ -65,6 +68,14 @@ export default function BookingActions({ booking }: BookingActionsProps) {
       {booking.status === 'confirmed' && (
         <>
           <button
+            onClick={() => handleAction('approve')}
+            disabled={isLoading !== null}
+            className="px-3 py-1.5 bg-emerald-600 text-white text-sm rounded-md hover:bg-emerald-700 disabled:opacity-50"
+            title="Approve after reviewing payment proof"
+          >
+            {isLoading === 'approve' ? '...' : 'Approve Payment'}
+          </button>
+          <button
             onClick={() => handleAction('complete')}
             disabled={isLoading !== null}
             className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 disabled:opacity-50"
@@ -74,7 +85,35 @@ export default function BookingActions({ booking }: BookingActionsProps) {
           <button
             onClick={() => handleAction('no_show')}
             disabled={isLoading !== null}
-            className="px-3 py-1.5 bg-gray-600 text-white text-sm rounded-md hover:bg-gray-700 disabled:opacity-50"
+            className="px-3 py-1.5 bg-orange-600 text-white text-sm rounded-md hover:bg-orange-700 disabled:opacity-50"
+            title="Manually mark as no-show"
+          >
+            {isLoading === 'no_show' ? '...' : 'No Show'}
+          </button>
+          <button
+            onClick={() => handleAction('cancel')}
+            disabled={isLoading !== null}
+            className="px-3 py-1.5 bg-red-600 text-white text-sm rounded-md hover:bg-red-700 disabled:opacity-50"
+          >
+            {isLoading === 'cancel' ? '...' : 'Cancel'}
+          </button>
+        </>
+      )}
+
+      {booking.status === 'approved' && (
+        <>
+          <button
+            onClick={() => handleAction('complete')}
+            disabled={isLoading !== null}
+            className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 disabled:opacity-50"
+          >
+            {isLoading === 'complete' ? '...' : 'Mark Complete'}
+          </button>
+          <button
+            onClick={() => handleAction('no_show')}
+            disabled={isLoading !== null}
+            className="px-3 py-1.5 bg-orange-600 text-white text-sm rounded-md hover:bg-orange-700 disabled:opacity-50"
+            title="Manually mark as no-show"
           >
             {isLoading === 'no_show' ? '...' : 'No Show'}
           </button>

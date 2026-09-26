@@ -3,8 +3,11 @@ import { desc, eq, inArray, sql } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { bookingServices, bookings, users } from '@/lib/db/schema';
 import { requireAdminSession } from '@/lib/admin-auth';
+import { ENGAGEMENT_STATUSES } from '@/lib/booking/lifecycle';
 
-const eligibleStatuses = ['pending', 'confirmed', 'completed'] as const;
+// Engagement metrics include pending/confirmed/approved/completed for
+// backward compatibility (same rules as the analytics page).
+const eligibleStatuses = ENGAGEMENT_STATUSES;
 
 function csvCell(value: unknown) {
   const text = String(value ?? '');

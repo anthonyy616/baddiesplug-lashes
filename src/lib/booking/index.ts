@@ -9,6 +9,7 @@ import {
   generateBookingReference,
 } from '@/lib/pricing';
 import { parseSlotToDateTime, getCancellationDeadline } from '@/lib/timezone';
+import { isCustomerVisible } from '@/lib/booking/lifecycle';
 import { queueEmailEvent, dispatchEmailEvent } from '@/lib/email/events';
 import { generateBookingPaymentLink, generateCancellationLink } from '@/lib/whatsapp';
 import { getPaymentProvider } from '@/lib/payments';
@@ -252,7 +253,7 @@ export async function cancelBooking(bookingId: string): Promise<{ success: boole
       return { success: false, error: 'Unauthorized' };
     }
 
-    if (booking.status !== 'pending' && booking.status !== 'confirmed') {
+    if (!isCustomerVisible(booking.status) || booking.status === 'cancelled') {
       return { success: false, error: 'Booking cannot be cancelled' };
     }
 
@@ -374,14 +375,14 @@ export async function getCustomerBookings(customerId: string) {
 
   const today = new Date().toISOString().slice(0, 10);
 
-  // Upcoming = pending/confirmed for today or the future.
+  // Upcoming = pending/confirmed/approved for today or the future.
   // Cancelled bookings remain visible so customers have cancellation/refund
-  // information. Completed, no-show, and rejected history is hidden from
-  // customers per requirements (admin has full history).
+  // information. Ignored, completed, no-show, and rejected history is hidden
+  // from customers per requirements (admin has full history).
+  // Visibility rules come from the shared lifecycle module.
   return all.filter(
     (b) =>
-      (b.appointmentDate >= today &&
-        (b.status === 'pending' || b.status === 'confirmed')) ||
+      (b.appointmentDate >= today && isCustomerVisible(b.status)) ||
       b.status === 'cancelled'
   );
 }
@@ -430,7 +431,7 @@ export async function rescheduleBooking(
       return { success: false, error: 'Unauthorized' };
     }
 
-    if (originalBooking.status !== 'pending' && originalBooking.status !== 'confirmed') {
+    if (!isCustomerVisible(originalBooking.status) || originalBooking.status === 'cancelled') {
       return { success: false, error: 'Booking cannot be rescheduled' };
     }
 

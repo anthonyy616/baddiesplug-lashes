@@ -1,6 +1,7 @@
 import { db } from '@/lib/db';
 import { availabilityOverrides, bookings } from '@/lib/db/schema';
 import { eq, and, inArray } from 'drizzle-orm';
+import { SLOT_OCCUPYING_STATUSES } from '@/lib/booking/lifecycle';
 import {
   isBusinessDay,
   getStandardSlots,
@@ -16,8 +17,11 @@ export interface AvailableSlot extends Slot {
   reason?: string;
 }
 
-/** Statuses that occupy a slot. Pending intentionally blocks until admin decision. */
-const OCCUPYING_STATUSES = ['pending', 'confirmed'] as const;
+/** Statuses that occupy a slot. Pending intentionally blocks until admin decision.
+ * Kept in sync with SLOT_OCCUPYING_STATUSES in src/lib/booking/lifecycle.ts
+ * (and the partial unique index): pending/confirmed/approved block the slot;
+ * ignored, cancelled, rejected, completed, and no-show bookings release it. */
+const OCCUPYING_STATUSES = SLOT_OCCUPYING_STATUSES;
 
 function isValidTime(t: string): boolean {
   return /^([01]\d|2[0-3]):[0-5]\d$/.test(t);
