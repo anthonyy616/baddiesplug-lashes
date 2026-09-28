@@ -3,8 +3,10 @@ import { auth } from '@/lib/auth';
 import { requireAuth } from '@/lib/auth/types';
 import { db } from '@/lib/db';
 import { bookings, notifications } from '@/lib/db/schema';
-import { eq } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
 import { v4 as uuidv4 } from 'uuid';
+import { ConcurrencyConflictError } from '@/lib/booking';
+import { recordBookingEvent } from '@/lib/booking/audit';
 
 export async function DELETE(
   request: NextRequest,
@@ -52,14 +54,33 @@ export async function DELETE(
       }
     }
 
-    // Update booking status
-    await db.update(bookings)
+    // Concurrency guard: re-check the status in the WHERE clause so a racing
+    // cancel or admin action cannot double-apply. Exactly one request wins.
+    const cancelled = await db.update(bookings)
       .set({
         status: 'cancelled',
         cancelledAt: new Date(),
         updatedAt: new Date(),
       })
-      .where(eq(bookings.id, id));
+      .where(and(eq(bookings.id, id), eq(bookings.status, booking.status)))
+      .returning({ id: bookings.id });
+
+    if (cancelled.length === 0) {
+      return NextResponse.json(
+        { error: 'Booking was updated by another action. Refresh and try again.' },
+        { status: 409 },
+      );
+    }
+
+    await recordBookingEvent(
+      {
+        bookingId: id,
+        eventType: 'cancelled',
+        actorType: 'customer',
+        actorId: session.user.id,
+        metadata: { reference: booking.reference },
+      },
+    );
 
     // Create notification
     await db.insert(notifications).values({
@@ -75,6 +96,9 @@ export async function DELETE(
 
     return NextResponse.json({ success: true });
   } catch (error) {
+    if (error instanceof ConcurrencyConflictError) {
+      return NextResponse.json({ error: 'Booking was modified concurrently' }, { status: 409 });
+    }
     console.error('Error cancelling booking:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }

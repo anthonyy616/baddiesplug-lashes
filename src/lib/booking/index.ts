@@ -3,13 +3,15 @@ import { bookings, bookingServices, bookingAddons, notifications, payments, refe
 import { eq, and } from 'drizzle-orm';
 import { v4 as uuidv4 } from 'uuid';
 import { requireAuth } from '@/lib/auth/types';
-import { isSlotAvailable } from '@/lib/availability';
+import { isSlotAvailable, invalidateAvailabilityCache } from '@/lib/availability';
 import {
   calculateBookingTotal,
   generateBookingReference,
 } from '@/lib/pricing';
 import { parseSlotToDateTime, getCancellationDeadline } from '@/lib/timezone';
 import { isCustomerVisible } from '@/lib/booking/lifecycle';
+import { recordBookingEvent } from '@/lib/booking/audit';
+import { cancelPendingReminders } from '@/lib/jobs';
 import { queueEmailEvent, getDispatchableEventIds, dispatchEmailEvent } from '@/lib/email/events';
 import { generateBookingPaymentLink, generateCancellationLink } from '@/lib/whatsapp';
 import { getPaymentProvider } from '@/lib/payments';
@@ -218,6 +220,10 @@ export async function createBooking(
       dispatchEmailEvent(eventId);
     }
 
+    // This request's write must be visible to the next request's availability
+    // check (module-global cache can outlive a single request).
+    invalidateAvailabilityCache(date);
+
     return {
       success: true,
       bookingId,
@@ -263,6 +269,18 @@ class SlotConflictError extends Error {
 }
 
 /**
+ * Thrown when a guarded status update affected 0 rows — a concurrent request
+ * (double cancel, cancel-vs-admin action) changed the booking first. Callers
+ * map this to HTTP 409.
+ */
+export class ConcurrencyConflictError extends Error {
+  constructor() {
+    super('Booking was modified concurrently');
+    this.name = 'ConcurrencyConflictError';
+  }
+}
+
+/**
  * Cancel a booking (customer-side; admins use the admin service).
  */
 export async function cancelBooking(bookingId: string): Promise<{ success: boolean; error?: string; whatsappUrl?: string }> {
@@ -298,14 +316,36 @@ export async function cancelBooking(bookingId: string): Promise<{ success: boole
     const now = new Date();
 
     await db.transaction(async (tx) => {
-      await tx
+      // Concurrency guard: the update re-checks the status observed above, so
+      // two racing cancel requests (or a cancel racing an admin action)
+      // cannot both apply — exactly one wins, the loser reports a conflict.
+      const cancelled = await tx
         .update(bookings)
         .set({
           status: 'cancelled',
           cancelledAt: now,
           updatedAt: now,
         })
-        .where(eq(bookings.id, bookingId));
+        .where(and(eq(bookings.id, bookingId), eq(bookings.status, booking.status)))
+        .returning({ id: bookings.id });
+
+      if (cancelled.length === 0) {
+        throw new ConcurrencyConflictError();
+      }
+
+      // Suppress pending reminders so a cancelled appointment never pings.
+      await cancelPendingReminders(bookingId);
+
+      await recordBookingEvent(
+        {
+          bookingId,
+          eventType: 'cancelled',
+          actorType: 'customer',
+          actorId: user.id,
+          metadata: { reference: booking.reference },
+        },
+        tx,
+      );
 
       await tx.insert(notifications).values({
         id: uuidv4(),
@@ -346,8 +386,14 @@ export async function cancelBooking(bookingId: string): Promise<{ success: boole
       booking.endTime
     );
 
+    // The slot just released — the next request must see it as available.
+    invalidateAvailabilityCache(booking.appointmentDate);
+
     return { success: true, whatsappUrl };
   } catch (error) {
+    if (error instanceof ConcurrencyConflictError) {
+      return { success: false, error: 'booking_modified_concurrently' };
+    }
     console.error('Error cancelling booking:', error);
     return { success: false, error: 'Failed to cancel booking' };
   }

@@ -68,6 +68,8 @@ export async function POST(request: NextRequest) {
       const addonIds = String(formData.get('addonIds') || '');
       const date = String(formData.get('date') || '');
       const startTime = String(formData.get('startTime') || '');
+      // Optional idempotency key so retried uploads cannot double-create
+      const submissionKey = String(formData.get('submissionKey') || '') || undefined;
       const endTime = String(formData.get('endTime') || '');
       const phone = String(formData.get('phone') || '');
       const notes = String(formData.get('notes') || '');
@@ -88,6 +90,7 @@ export async function POST(request: NextRequest) {
         endTime,
         phone,
         notes || undefined,
+        submissionKey,
       );
 
       if (!result.success) {

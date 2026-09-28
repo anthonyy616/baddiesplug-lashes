@@ -29,9 +29,11 @@ export async function queueAppointmentReminders(): Promise<number> {
   const now = Date.now();
   const horizon = new Date(now + 32 * 60 * 60 * 1000);
 
+  // Approved appointments get reminders too (audit item 10): selection
+  // includes BOTH 'confirmed' and 'approved'.
   const upcoming = await db.query.bookings.findMany({
     where: and(
-      eq(bookings.status, 'confirmed'),
+      inArray(bookings.status, ['confirmed', 'approved']),
       sql`${bookings.appointmentDate} >= to_char(now() - interval '1 day', 'YYYY-MM-DD')`
     ),
   });
@@ -115,13 +117,60 @@ export async function sendDueReminders(): Promise<number> {
     )
     .limit(50);
 
-  // Await each send so the serverless function doesn't freeze mid-flight
-  // after the cron response returns. processEmailEvent never throws.
+  // Re-check the booking status immediately before sending (audit item 10):
+  // a reminder for a booking cancelled/rescheduled after queueing must not
+  // go out. Cancelled/terminal/reschedule-source bookings suppress the send
+  // by failing the event permanently.
+  const TERMINAL_OR_CANCELLED = [
+    'cancelled',
+    'rejected',
+    'ignored',
+    'completed',
+    'no_show',
+  ];
+
+  let sent = 0;
   for (const event of due) {
+    if (event.bookingId) {
+      const booking = await db.query.bookings.findFirst({
+        where: eq(bookings.id, event.bookingId),
+      });
+      if (!booking || TERMINAL_OR_CANCELLED.includes(booking.status)) {
+        // Booking gone or cancelled — permanently suppress this reminder.
+        await db
+          .update(emailEvents)
+          .set({ status: 'failed', lastError: 'Booking cancelled or removed before reminder' })
+          .where(eq(emailEvents.id, event.id));
+        continue;
+      }
+    }
+
+    // Await each send so the serverless function doesn't freeze mid-flight
+    // after the cron response returns. processEmailEvent never throws.
     await processEmailEvent(event.id);
+    sent++;
   }
 
-  return due.length;
+  return sent;
+}
+
+/**
+ * Cancel pending reminders for a booking (called when a booking is cancelled
+ * or rescheduled so stale reminders never fire for the old slot).
+ */
+export async function cancelPendingReminders(bookingId: string): Promise<number> {
+  const cancelled = await db
+    .update(emailEvents)
+    .set({ status: 'failed', lastError: 'Booking cancelled or rescheduled' })
+    .where(
+      and(
+        eq(emailEvents.bookingId, bookingId),
+        eq(emailEvents.eventType, 'appointment.reminder'),
+        eq(emailEvents.status, 'pending'),
+      ),
+    )
+    .returning({ id: emailEvents.id });
+  return cancelled.length;
 }
 
 /**
@@ -166,12 +215,16 @@ export async function markIgnoredBookings(): Promise<number> {
 
   if (toIgnore.length === 0) return 0;
 
-  await db
+  // Race safety: re-check status = 'confirmed' in the WHERE clause so an
+  // admin approval landing between the SELECT and this UPDATE is never
+  // overwritten to 'ignored'. Only rows still confirmed are transitioned.
+  const ignored = await db
     .update(bookings)
     .set({ status: 'ignored', updatedAt: now })
-    .where(inArray(bookings.id, toIgnore));
+    .where(and(inArray(bookings.id, toIgnore), eq(bookings.status, 'confirmed')))
+    .returning({ id: bookings.id });
 
-  return toIgnore.length;
+  return ignored.length;
 }
 
 /**

@@ -103,6 +103,21 @@ function clearRequestCache() {
   requestCache.clear();
 }
 
+/**
+ * Invalidate the availability cache after any authoritative booking write
+ * (create, cancel, admin action, reschedule). Without this, a long-lived
+ * Node process can serve stale "available" data to the next request even
+ * though the database just changed (audit item 8). The database partial
+ * unique index remains the final race guard regardless of cache state.
+ */
+export function invalidateAvailabilityCache(date?: string) {
+  if (date) {
+    requestCache.delete(cacheKey(date));
+  } else {
+    requestCache.clear();
+  }
+}
+
 function getBlockedSlotKeys(date: string, overrides: OverrideRow[]): Set<string> {
   const blocked = new Set<string>();
   for (const override of overrides) {

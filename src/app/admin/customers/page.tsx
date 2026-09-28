@@ -1,24 +1,31 @@
 import { db } from '@/lib/db';
 import { users, bookings } from '@/lib/db/schema';
-import { eq, desc, sql } from 'drizzle-orm';
+import { eq, desc, count } from 'drizzle-orm';
 import { formatLagosTime } from '@/lib/timezone';
 
 export const dynamic = 'force-dynamic';
 
 export default async function AdminCustomersPage() {
-  const customers = await db
+  // Typed count with LEFT JOIN + GROUP BY (matches the history query's
+  // WHERE customer_id = users.id) and Number(...) normalization — the raw
+  // correlated subquery returned driver-dependent types that rendered as 0.
+  const customerRows = await db
     .select({
       id: users.id,
       name: users.name,
       email: users.email,
       phone: users.phone,
       createdAt: users.createdAt,
-      bookingCount: sql<number>`(select count(*) from ${bookings} where ${bookings.customerId} = ${users.id})`,
+      bookingCount: count(bookings.id),
     })
     .from(users)
+    .leftJoin(bookings, eq(bookings.customerId, users.id))
     .where(eq(users.role, 'customer'))
+    .groupBy(users.id)
     .orderBy(desc(users.createdAt))
     .limit(500);
+
+  const customers = customerRows.map((c) => ({ ...c, bookingCount: Number(c.bookingCount) }));
 
   return (
     <div className="space-y-6">

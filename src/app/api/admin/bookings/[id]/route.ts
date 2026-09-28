@@ -8,9 +8,10 @@ import { requireAdmin } from '@/lib/auth/types';
 import type { BookingStatus, AdminBookingAction } from '@/types';
 import { queueEmailEvent, getDispatchableEventIds, dispatchEmailEvent } from '@/lib/email/events';
 import { getBookingById } from '@/lib/booking';
+import { cancelPendingReminders } from '@/lib/jobs';
 import { recordBookingEvent } from '@/lib/booking/audit';
 import { canTransition, isReschedulable } from '@/lib/booking/lifecycle';
-import { validateAdminSlot, isSlotAvailable } from '@/lib/availability';
+import { validateAdminSlot, isSlotAvailable, invalidateAvailabilityCache } from '@/lib/availability';
 import { generateBookingReference } from '@/lib/pricing';
 
 // Status actions (normal transitions; canonical matrix in
@@ -144,6 +145,11 @@ export async function PATCH(
         throw new ConcurrencyConflictError();
       }
 
+      // Suppress pending reminders for cancelled bookings.
+      if (targetStatus === 'cancelled') {
+        await cancelPendingReminders(id);
+      }
+
       // Immutable audit trail
       const auditEventType =
         targetStatus === 'cancelled'
@@ -234,6 +240,9 @@ export async function PATCH(
     }
 
     void admin;
+
+    // Status changed — the slot may have been released.
+    invalidateAvailabilityCache(booking.appointmentDate);
 
     return NextResponse.json({ success: true, status: targetStatus });
   } catch (error) {
@@ -345,6 +354,9 @@ async function handleReschedule(
       if (cancelledOld.length === 0) {
         throw new ConcurrencyConflictError();
       }
+
+      // Suppress reminders queued for the original slot.
+      await cancelPendingReminders(id);
 
       // Snapshots copied BEFORE creating the replacement
       const oldServices = await tx.query.bookingServices.findMany({
@@ -500,6 +512,10 @@ async function handleReschedule(
     for (const eventId of eventIds) {
       dispatchEmailEvent(eventId);
     }
+
+    // Old slot released, new slot taken — both dates must re-read the DB.
+    invalidateAvailabilityCache(booking.appointmentDate);
+    invalidateAvailabilityCache(newDate);
 
     return NextResponse.json({
       success: true,
