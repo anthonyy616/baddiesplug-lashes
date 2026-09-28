@@ -45,9 +45,24 @@ export const TERMINAL_STATUSES: readonly BookingStatus[] = [
 ] as const;
 
 /**
+ * Statuses a booking must be in for ADMIN RESCHEDULE. Reschedule is NOT a
+ * normal status transition: it is a separate command that (atomically)
+ * records the original booking's outcome and creates a replacement booking.
+ * Per policy, 'pending' bookings are NOT reschedulable — admins cancel or
+ * reject them instead (the reschedule UI only renders for confirmed/approved).
+ */
+export const RESCHEDULABLE_STATUSES: readonly BookingStatus[] = [
+  'confirmed',
+  'approved',
+] as const;
+
+/**
  * Legal status transitions. Anything not listed here must be rejected by the
  * API. Legacy statuses keep their existing behavior; 'approved' behaves like
  * 'confirmed' for admin outcome actions.
+ *
+ * Reschedule is intentionally absent: it is a command (see RESCHEDULABLE_STATUSES),
+ * not a status->status transition, and never passes through canTransition().
  */
 export const ALLOWED_TRANSITIONS: Record<BookingStatus, readonly BookingStatus[]> = {
   pending: ['confirmed', 'rejected', 'cancelled'],
@@ -63,6 +78,11 @@ export const ALLOWED_TRANSITIONS: Record<BookingStatus, readonly BookingStatus[]
 /** True if `from -> to` is a legal transition. */
 export function canTransition(from: BookingStatus, to: BookingStatus): boolean {
   return ALLOWED_TRANSITIONS[from]?.includes(to) ?? false;
+}
+
+/** True if admin reschedule is permitted from this status. */
+export function isReschedulable(status: BookingStatus | string): boolean {
+  return (RESCHEDULABLE_STATUSES as readonly string[]).includes(status);
 }
 
 /** True if the status occupies an appointment slot (blocks re-booking). */

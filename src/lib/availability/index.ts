@@ -251,6 +251,99 @@ export async function isSlotAvailable(
 }
 
 /**
+ * Admin-only slot validation for reschedules/admin-created bookings.
+ *
+ * Policy decision (audit item 9): "custom time" means admins MAY pick
+ * arbitrary times — unlike customers, they are not restricted to the standard
+ * slot template. This path validates:
+ * - time format (HH:MM) and start < end
+ * - duration is positive and bounded (>= 15 min, <= 8 hours)
+ * - business hours (08:00-20:00 Africa/Lagos) unless an override opens it
+ * - no overlap with other active bookings, the SAME booking is excluded via
+ *   excludeBookingId so rescheduling into a nearby slot of its own day works
+ * - blocked overrides still apply
+ * The database partial unique index remains the final race guard.
+ */
+export async function validateAdminSlot(
+  date: string,
+  startTime: string,
+  endTime: string,
+  excludeBookingId?: string,
+): Promise<{ valid: boolean; error?: string }> {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !isValidTime(startTime) || !isValidTime(endTime)) {
+    return { valid: false, error: 'invalid_slot' };
+  }
+  if (startTime >= endTime) {
+    return { valid: false, error: 'end_before_start' };
+  }
+
+  const toMinutes = (t: string) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5));
+  const startMin = toMinutes(startTime);
+  const endMin = toMinutes(endTime);
+  if (endMin - startMin < 15) {
+    return { valid: false, error: 'duration_too_short' };
+  }
+  if (endMin - startMin > 8 * 60) {
+    return { valid: false, error: 'duration_too_long' };
+  }
+
+  // Business hours (Lagos): 08:00 - 20:00
+  if (startMin < 8 * 60 || endMin > 20 * 60) {
+    return { valid: false, error: 'outside_business_hours' };
+  }
+
+  // Date must be within the booking window (not in the past)
+  let slotTimes;
+  try {
+    slotTimes = parseSlotToDateTime({ date, startTime, endTime });
+  } catch {
+    return { valid: false, error: 'invalid_slot' };
+  }
+  if (slotTimes.end.getTime() <= Date.now()) {
+    return { valid: false, error: 'slot_in_past' };
+  }
+
+  // Overlap + overrides: load active bookings and overrides for the date.
+  const [overrides, activeBookings] = await Promise.all([
+    db
+      .select({
+        startTime: availabilityOverrides.startTime,
+        endTime: availabilityOverrides.endTime,
+        mode: availabilityOverrides.mode,
+      })
+      .from(availabilityOverrides)
+      .where(eq(availabilityOverrides.date, date)),
+    db.query.bookings.findMany({
+      where: and(
+        eq(bookings.appointmentDate, date),
+        inArray(bookings.status, [...OCCUPYING_STATUSES]),
+      ),
+    }),
+  ]
+  );
+
+  // Blocked overrides reject any overlapping custom slot.
+  for (const o of overrides) {
+    if (o.mode !== 'blocked') continue;
+    if (startMin < toMinutes(o.endTime) && endMin > toMinutes(o.startTime)) {
+      return { valid: false, error: 'blocked' };
+    }
+  }
+
+  // Overlap against active bookings (excluding the booking being rescheduled).
+  for (const b of activeBookings) {
+    if (excludeBookingId && b.id === excludeBookingId) continue;
+    const bStart = toMinutes(b.startTime);
+    const bEnd = toMinutes(b.endTime);
+    if (startMin < bEnd && endMin > bStart) {
+      return { valid: false, error: 'overlaps_existing_booking' };
+    }
+  }
+
+  return { valid: true };
+}
+
+/**
  * Validate booking parameters (authoritative server-side check).
  */
 export async function validateBookingSlot(
