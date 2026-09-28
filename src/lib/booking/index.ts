@@ -1,6 +1,6 @@
 import { db } from '@/lib/db';
 import { bookings, bookingServices, bookingAddons, notifications, payments, referenceImages } from '@/lib/db/schema';
-import { eq } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
 import { v4 as uuidv4 } from 'uuid';
 import { requireAuth } from '@/lib/auth/types';
 import { isSlotAvailable } from '@/lib/availability';
@@ -49,7 +49,8 @@ export async function createBooking(
   startTime: string,
   endTime: string,
   phone: string,
-  notes?: string
+  notes?: string,
+  submissionKey?: string
 ): Promise<CreateBookingResult> {
   try {
     // Authenticate user
@@ -57,6 +58,20 @@ export async function createBooking(
 
     if (!Array.isArray(serviceIds) || serviceIds.length === 0) {
       return { success: false, error: 'At least one service is required' };
+    }
+
+    // Idempotency: another request with the same submission key already
+    // created a booking — return the original result instead of duplicating.
+    if (submissionKey) {
+      const existing = await getBookingBySubmissionKey(submissionKey);
+      if (existing) {
+        return {
+          success: true,
+          bookingId: existing.id,
+          reference: existing.reference,
+          whatsappUrl: existing.whatsappUrl,
+        };
+      }
     }
 
     // The availability check and insert must be atomic to avoid race conditions.
@@ -98,6 +113,7 @@ export async function createBooking(
         subtotal: priceSnapshot.subtotal,
         depositRequired: priceSnapshot.depositRequired,
         total: priceSnapshot.total,
+        idempotencyKey: submissionKey ?? null,
         createdAt: now,
         updatedAt: now,
       });
@@ -213,6 +229,22 @@ export async function createBooking(
       return { success: false, error: 'slot_no_longer_available' };
     }
     if (isUniqueViolation(error)) {
+      // Two possible races:
+      // 1. Same submission key retried concurrently → the key's unique index
+      //    hit; return the ORIGINAL booking so retries are idempotent.
+      // 2. Different submission, same slot → the slot index hit; report the
+      //    slot as taken.
+      if (submissionKey) {
+        const existing = await getBookingBySubmissionKey(submissionKey);
+        if (existing) {
+          return {
+            success: true,
+            bookingId: existing.id,
+            reference: existing.reference,
+            whatsappUrl: existing.whatsappUrl,
+          };
+        }
+      }
       return { success: false, error: 'slot_no_longer_available' };
     }
     console.error('Error creating booking:', error);
@@ -318,6 +350,50 @@ export async function cancelBooking(bookingId: string): Promise<{ success: boole
   } catch (error) {
     console.error('Error cancelling booking:', error);
     return { success: false, error: 'Failed to cancel booking' };
+  }
+}
+
+/**
+ * Reconciliation lookup: find the booking created by a client submission key.
+ * Used by the POST idempotency fast-path and the GET reconciliation endpoint
+ * so a lost response never leads to a duplicate submission. Scoped to the
+ * authenticated customer so one customer cannot probe another's keys.
+ */
+export async function getBookingBySubmissionKey(
+  submissionKey: string
+): Promise<
+  | (Pick<import('@/types').Booking, 'id' | 'reference' | 'status'> & { whatsappUrl: string })
+  | null
+> {
+  if (!submissionKey || submissionKey.length < 8 || submissionKey.length > 64) {
+    return null;
+  }
+
+  try {
+    const user = await requireAuth();
+    const booking = await db.query.bookings.findFirst({
+      where: and(eq(bookings.idempotencyKey, submissionKey), eq(bookings.customerId, user.id)),
+    });
+    if (!booking) return null;
+
+    const whatsappUrl = generateBookingPaymentLink(
+      booking.reference,
+      user.name,
+      booking.appointmentDate,
+      booking.startTime,
+      booking.endTime,
+      booking.total,
+      booking.depositRequired
+    );
+
+    return {
+      id: booking.id,
+      reference: booking.reference,
+      status: booking.status as import('@/types').BookingStatus,
+      whatsappUrl,
+    };
+  } catch {
+    return null;
   }
 }
 

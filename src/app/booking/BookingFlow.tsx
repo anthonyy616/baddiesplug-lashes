@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { v4 as uuidv4 } from 'uuid';
 import { useRouter, useSearchParams } from 'next/navigation';
 import StepIndicator from '@/components/booking/StepIndicator';
 import StickySummaryBar, { SummaryItem } from '@/components/booking/StickySummaryBar';
@@ -310,6 +311,12 @@ export default function BookingFlow() {
     }
   };
 
+  // One idempotency key per submission attempt-set: all retries of this
+  // submission (double-click, timeout, 5xx, connection reset) reuse it so the
+  // server resolves them to a single booking. A fresh key is generated only
+  // when the user starts a NEW submission from the review step.
+  const submissionKeyRef = useRef<string>(uuidv4());
+
   const submitBooking = async () => {
     setError(null);
     setIsSubmitting(true);
@@ -333,6 +340,7 @@ export default function BookingFlow() {
             endTime: selectedSlot?.endTime,
             phone: phone.trim(),
             notes: notes.trim() || undefined,
+            submissionKey: submissionKeyRef.current,
           }),
         });
 
@@ -343,6 +351,9 @@ export default function BookingFlow() {
           setBookingResult({ reference: data.reference, whatsappUrl: data.whatsappUrl });
           localStorage.removeItem(INTENT_KEY);
           localStorage.removeItem(SELECTED_SERVICE_KEY);
+          // Rotate the key so a fresh booking later in this session starts a
+          // new idempotency scope.
+          submissionKeyRef.current = uuidv4();
           return; // Success
         }
 
@@ -369,7 +380,27 @@ export default function BookingFlow() {
         // Other server errors — may be transient, retry
         lastError = data.error || 'Failed to create booking. Please try again.';
       } catch (err) {
-        // Network error — likely transient, retry
+        // Network error / lost response — the submission MAY have committed
+        // server-side. Reconcile before retrying: if the booking already
+        // exists under this submission key, show it instead of re-submitting.
+        try {
+          const reconcile = await fetch(
+            `/api/booking?submissionKey=${encodeURIComponent(submissionKeyRef.current)}`
+          );
+          if (reconcile.ok) {
+            const rData = await reconcile.json();
+            if (rData.found) {
+              setCreatedBookingId(rData.bookingId);
+              setBookingResult({ reference: rData.reference, whatsappUrl: rData.whatsappUrl });
+              localStorage.removeItem(INTENT_KEY);
+              localStorage.removeItem(SELECTED_SERVICE_KEY);
+              submissionKeyRef.current = uuidv4();
+              return;
+            }
+          }
+        } catch {
+          /* reconciliation unavailable — fall through to retry */
+        }
         lastError = 'Failed to create booking. Please check your connection and try again.';
       }
 
