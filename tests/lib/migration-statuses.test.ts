@@ -68,15 +68,21 @@ describe('migration journal', () => {
     );
   });
 
-  it('registers migration 0010 (audit events + idempotency) last', () => {
+  it('registers migration 0010 (audit events + idempotency) after 0009', () => {
     const tags = journal.entries.map((e: { tag: string }) => e.tag);
     expect(tags).toContain('0010_audit_events_booking_idempotency');
-    expect(tags.indexOf('0010_audit_events_booking_idempotency')).toBe(
-      tags.length - 1
-    );
     expect(
       tags.indexOf('0010_audit_events_booking_idempotency')
     ).toBeGreaterThan(tags.indexOf('0009_booking_status_approved_ignored'));
+  });
+
+  it('registers migration 0011 (email lease timestamp) last', () => {
+    const tags = journal.entries.map((e: { tag: string }) => e.tag);
+    expect(tags).toContain('0011_email_events_updated_at');
+    expect(tags.indexOf('0011_email_events_updated_at')).toBe(tags.length - 1);
+    expect(tags.indexOf('0011_email_events_updated_at')).toBeGreaterThan(
+      tags.indexOf('0010_audit_events_booking_idempotency')
+    );
   });
 
   it('has unique, sequential idx values', () => {

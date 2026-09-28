@@ -17,7 +17,7 @@ test.describe('admin booking actions', () => {
     const data = await list.json();
     const confirmed = (data.bookings ?? []).find((b: { status: string }) => b.status === 'confirmed');
     test.skip(!confirmed, 'no confirmed booking available');
-    bookingId = confirmed.id;
+    if (confirmed) bookingId = confirmed.id;
 
     const res = await request.patch(`/api/admin/bookings/${bookingId}`, {
       data: { action: 'approve' },
@@ -55,7 +55,8 @@ test.describe('admin booking actions', () => {
         newEndTime: '14:00',
       },
     });
-    if (res.status() === 400) test.skip('reschedule slot unavailable');
+    test.skip(res.status() === 400, 'reschedule slot unavailable');
+    if (res.status() === 400) return;
     expect(res.ok()).toBeTruthy();
     const body = await res.json();
     expect(body.status).toBe('rescheduled');
