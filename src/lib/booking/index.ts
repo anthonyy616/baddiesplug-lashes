@@ -636,6 +636,11 @@ export async function rescheduleBooking(
       });
     });
 
+    // The old slot was released and the replacement slot is now occupied.
+    // Clear both dates so a subsequent reschedule sees the committed state.
+    invalidateAvailabilityCache(originalBooking.appointmentDate);
+    invalidateAvailabilityCache(newDate);
+
     const whatsappUrl = generateBookingPaymentLink(
       newReference,
       user.name,

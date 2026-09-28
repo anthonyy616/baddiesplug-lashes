@@ -164,3 +164,20 @@ describe('audit event recorder', () => {
     expect(typeof recordBookingEvent).toBe('function');
   });
 });
+
+describe('customer reschedule availability cache', () => {
+  it('invalidates both the released and replacement dates after commit', () => {
+    const src = read('src/lib/booking/index.ts');
+    const fnStart = src.indexOf('export async function rescheduleBooking');
+    const fnBody = src.slice(fnStart, src.indexOf('// Re-export for API layer convenience', fnStart));
+    const transactionStart = fnBody.indexOf('await db.transaction');
+    const responseStart = fnBody.indexOf('const whatsappUrl');
+    const oldDateInvalidation = fnBody.indexOf('invalidateAvailabilityCache(originalBooking.appointmentDate)');
+    const newDateInvalidation = fnBody.indexOf('invalidateAvailabilityCache(newDate)');
+
+    expect(oldDateInvalidation).toBeGreaterThan(transactionStart);
+    expect(newDateInvalidation).toBeGreaterThan(transactionStart);
+    expect(oldDateInvalidation).toBeLessThan(responseStart);
+    expect(newDateInvalidation).toBeLessThan(responseStart);
+  });
+});
