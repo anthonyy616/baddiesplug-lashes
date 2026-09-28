@@ -41,6 +41,12 @@ const NAV_SECTIONS: { title?: string; items: NavItem[] }[] = [
     ],
   },
   {
+    title: 'Content',
+    items: [
+      { href: '/admin/homepage', label: 'Homepage Media', icon: <IconImage /> },
+    ],
+  },
+  {
     title: 'People',
     items: [
       { href: '/admin/customers', label: 'Customers', icon: <IconUsers /> },
@@ -255,6 +261,13 @@ function IconCalendar() {
   return (
     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+    </svg>
+  );
+}
+function IconImage() {
+  return (
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 5a2 2 0 012-2h12a2 2 0 012 2v14a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 10l2.5-3 2 2.5 3-4L18 17H7zm2-5.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z" />
     </svg>
   );
 }
