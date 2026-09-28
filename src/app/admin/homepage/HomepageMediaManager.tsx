@@ -20,16 +20,33 @@ export interface GalleryRow {
   displayOrder: number;
   width: number | null;
   height: number | null;
+  serviceId: string | null;
+}
+
+export interface GalleryServiceOption {
+  id: string;
+  name: string;
+  category: string;
+  displayOrder: number;
+}
+
+export interface GalleryCategoryOption {
+  category: string;
+  displayOrder: number;
 }
 
 export default function HomepageMediaManager({
   initialHero,
   initialEditorial,
   initialGallery,
+  services,
+  categories,
 }: {
   initialHero: HomeMediaRow | null;
   initialEditorial: HomeMediaRow | null;
   initialGallery: GalleryRow[];
+  services: GalleryServiceOption[];
+  categories: GalleryCategoryOption[];
 }) {
   return (
     <div className="space-y-6">
@@ -45,7 +62,7 @@ export default function HomepageMediaManager({
         hint="The portrait beside the brand statement. Portrait orientation works best (3:4)."
         initial={initialEditorial}
       />
-      <GalleryManager initialImages={initialGallery} />
+      <GalleryManager initialImages={initialGallery} services={services} categories={categories} />
     </div>
   );
 }

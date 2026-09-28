@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { galleryImages } from '@/lib/db/schema';
-import { asc, eq } from 'drizzle-orm';
+import { galleryCategoryOrder, galleryImages, services } from '@/lib/db/schema';
+import { and, asc, eq, isNull } from 'drizzle-orm';
 import { v4 as uuidv4 } from 'uuid';
 import {
   isStorageConfigured,
@@ -18,7 +18,7 @@ import { requireAdminSession } from '@/lib/admin-auth';
  *
  * GET    /api/admin/gallery                 (all images in display order)
  * POST   /api/admin/gallery                 (multipart: file, caption?, altText?)
- * PATCH  /api/admin/gallery                 (JSON: { id, caption?, altText?, displayOrder? })
+ * PATCH  /api/admin/gallery                 (JSON: image or category ordering/assignment update)
  * DELETE /api/admin/gallery?id=X
  *
  * Uploads accept WEBP/JPG/PNG/HEIC from any phone and are re-encoded server-
@@ -60,9 +60,22 @@ export async function GET() {
 
     const images = await db.query.galleryImages.findMany({
       orderBy: [asc(galleryImages.displayOrder), asc(galleryImages.createdAt)],
+        with: { service: true },
     });
 
-    return NextResponse.json({ images });
+      const [serviceRows, categoryRows] = await Promise.all([
+        db
+          .select({ id: services.id, name: services.name, category: services.category, displayOrder: services.displayOrder })
+          .from(services)
+          .where(and(eq(services.isActive, true), isNull(services.deletedAt)))
+          .orderBy(asc(services.category), asc(services.displayOrder), asc(services.name)),
+        db
+          .select()
+          .from(galleryCategoryOrder)
+          .orderBy(asc(galleryCategoryOrder.displayOrder), asc(galleryCategoryOrder.category)),
+      ]);
+
+      return NextResponse.json({ images, services: serviceRows, categories: categoryRows });
   } catch (error) {
     if (error instanceof Error && error.message === 'AdminUnauthorized') {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
@@ -166,16 +179,50 @@ export async function PATCH(request: NextRequest) {
 
     const body = (await request.json()) as {
       id?: string;
+        serviceId?: string | null;
       caption?: string | null;
       altText?: string | null;
       displayOrder?: number;
+        category?: string;
+        categoryDisplayOrder?: number;
     };
+
+      if (body.category !== undefined || body.categoryDisplayOrder !== undefined) {
+        const category = body.category?.trim().slice(0, 50);
+        if (!category || !Number.isInteger(body.categoryDisplayOrder)) {
+          return NextResponse.json({ error: 'Valid category and categoryDisplayOrder are required' }, { status: 400 });
+        }
+
+        const [updatedCategory] = await db
+          .insert(galleryCategoryOrder)
+          .values({ category, displayOrder: body.categoryDisplayOrder, updatedAt: new Date() })
+          .onConflictDoUpdate({
+            target: galleryCategoryOrder.category,
+            set: { displayOrder: body.categoryDisplayOrder, updatedAt: new Date() },
+          })
+          .returning();
+
+        return NextResponse.json({ success: true, category: updatedCategory });
+      }
 
     if (!body.id || !/^[0-9a-f-]{36}$/i.test(body.id)) {
       return NextResponse.json({ error: 'Invalid or missing id' }, { status: 400 });
     }
 
     const updates: Record<string, unknown> = {};
+      if (body.serviceId !== undefined) {
+        if (body.serviceId !== null && !/^[0-9a-f-]{36}$/i.test(body.serviceId)) {
+          return NextResponse.json({ error: 'Invalid serviceId' }, { status: 400 });
+        }
+        if (body.serviceId) {
+          const [service] = await db
+            .select({ id: services.id })
+            .from(services)
+            .where(and(eq(services.id, body.serviceId), eq(services.isActive, true), isNull(services.deletedAt)));
+          if (!service) return NextResponse.json({ error: 'Service not found or inactive' }, { status: 400 });
+        }
+        updates.serviceId = body.serviceId;
+      }
     if (body.caption !== undefined) {
       updates.caption = body.caption?.trim().slice(0, 120) || null;
       // Keep alt text in sync when it was only mirroring the caption.

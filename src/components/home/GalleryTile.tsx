@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Image from 'next/image';
+import Link from 'next/link';
 import { ArrowUpRight } from 'lucide-react';
 
 interface GalleryTileProps {
@@ -10,6 +11,7 @@ interface GalleryTileProps {
   label: string;
   showLabelAlways?: boolean;
   priority: boolean;
+  href?: string;
   /** Extra classes for the outer figure — used for mobile sizing. */
   className?: string;
 }
@@ -26,14 +28,15 @@ export default function GalleryTile({
   label,
   showLabelAlways = false,
   priority,
+  href,
   className = '',
 }: GalleryTileProps) {
   const [failed, setFailed] = useState(false);
 
   if (failed) {
-    return (
+    const fallback = (
       <div
-        className="group relative h-full min-h-[220px] w-full overflow-hidden bg-gradient-to-br from-wine via-wine-deep to-ink-black"
+        className="group relative h-full min-h-55 w-full overflow-hidden bg-linear-to-br from-wine via-wine-deep to-ink-black"
         aria-hidden="true"
       >
         <div className="absolute inset-0 flex items-center justify-center">
@@ -46,9 +49,10 @@ export default function GalleryTile({
         )}
       </div>
     );
+    return href ? <Link href={href} className="block h-full">{fallback}</Link> : fallback;
   }
 
-  return (
+  const tile = (
     <figure className={`group relative h-full w-full overflow-hidden ${className}`}>
       <Image
         src={src}
@@ -60,7 +64,7 @@ export default function GalleryTile({
         className="object-cover transition-transform duration-700 ease-out group-hover:scale-[1.05] motion-reduce:transition-none"
       />
       <div
-        className="absolute inset-0 bg-gradient-to-t from-ink-black/70 via-transparent to-transparent opacity-0 transition-opacity duration-500 group-hover:opacity-100"
+        className="absolute inset-0 bg-linear-to-t from-ink-black/70 via-transparent to-transparent opacity-0 transition-opacity duration-500 group-hover:opacity-100"
         aria-hidden="true"
       />
       <figcaption
@@ -78,4 +82,6 @@ export default function GalleryTile({
       </figcaption>
     </figure>
   );
+
+  return href ? <Link href={href} className="block h-full">{tile}</Link> : tile;
 }

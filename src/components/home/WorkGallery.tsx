@@ -53,7 +53,7 @@ export default function WorkGallery({ images }: { images: GalleryImage[] }) {
 
         {/* Desktop: asymmetric grid (dense flow repairs any gaps from
             repeating the layout across many images) */}
-        <div className="hidden md:grid md:grid-flow-dense md:grid-cols-3 md:auto-rows-[180px] lg:auto-rows-[220px] md:gap-3 lg:gap-4">
+        <div className="hidden md:grid md:grid-flow-dense md:grid-cols-3 md:auto-rows-45 lg:auto-rows-55 md:gap-3 lg:gap-4">
           {images.map((image, i) => (
             <Reveal
               key={image.src}
@@ -65,6 +65,7 @@ export default function WorkGallery({ images }: { images: GalleryImage[] }) {
                 alt={image.alt}
                 label={image.caption ?? SERVICE_HINTS[i % SERVICE_HINTS.length] ?? 'Lash Work'}
                 priority={false}
+                href="/gallery-view/"
               />
             </Reveal>
           ))}
@@ -81,7 +82,8 @@ export default function WorkGallery({ images }: { images: GalleryImage[] }) {
               label={image.caption ?? SERVICE_HINTS[i % SERVICE_HINTS.length] ?? 'Lash Work'}
               showLabelAlways
               priority={false}
-              className="aspect-[4/3]"
+              href="/gallery-view/"
+              className="aspect-4/3"
             />
           ))}
         </div>

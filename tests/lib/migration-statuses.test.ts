@@ -76,13 +76,13 @@ describe('migration journal', () => {
     ).toBeGreaterThan(tags.indexOf('0009_booking_status_approved_ignored'));
   });
 
-  it('registers migration 0011 (email lease timestamp) last', () => {
+  it('registers migration 0011 before the gallery assignment migration', () => {
     const tags = journal.entries.map((e: { tag: string }) => e.tag);
     expect(tags).toContain('0011_email_events_updated_at');
-    expect(tags.indexOf('0011_email_events_updated_at')).toBe(tags.length - 1);
     expect(tags.indexOf('0011_email_events_updated_at')).toBeGreaterThan(
       tags.indexOf('0010_audit_events_booking_idempotency')
     );
+    expect(tags.indexOf('0012_gallery_service_assignment')).toBe(tags.length - 1);
   });
 
   it('has unique, sequential idx values', () => {

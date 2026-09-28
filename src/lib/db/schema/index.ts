@@ -164,6 +164,7 @@ export const homepageMedia = pgTable('homepage_media', {
  */
 export const galleryImages = pgTable('gallery_images', {
   id: uuid('id').primaryKey().defaultRandom(),
+  serviceId: uuid('service_id').references(() => services.id, { onDelete: 'set null' }),
   storageKey: varchar('storage_key', { length: 500 }).notNull(),
   publicUrl: varchar('public_url', { length: 500 }).notNull(),
   caption: varchar('caption', { length: 120 }),
@@ -174,8 +175,16 @@ export const galleryImages = pgTable('gallery_images', {
   uploadedBy: varchar('uploaded_by', { length: 255 }),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
 }, (table) => [
+  index('gallery_images_service_id_idx').on(table.serviceId),
   index('gallery_images_display_order_idx').on(table.displayOrder),
 ]);
+
+/** Admin-controlled ordering for the category sections on the public gallery. */
+export const galleryCategoryOrder = pgTable('gallery_category_order', {
+  category: varchar('category', { length: 50 }).primaryKey(),
+  displayOrder: integer('display_order').notNull().default(0),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+});
 
 // Addons table
 export const addons = pgTable('addons', {
@@ -406,7 +415,12 @@ export const serviceImagesRelations = relations(serviceImages, ({ one }) => ({
   }),
 }));
 
-export const galleryImagesRelations = relations(galleryImages, () => ({}));
+export const galleryImagesRelations = relations(galleryImages, ({ one }) => ({
+  service: one(services, {
+    fields: [galleryImages.serviceId],
+    references: [services.id],
+  }),
+}));
 
 export const addonsRelations = relations(addons, ({ many }) => ({
   bookingAddons: many(bookingAddons),

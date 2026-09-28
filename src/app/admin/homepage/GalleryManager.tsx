@@ -2,7 +2,11 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import type { GalleryRow } from './HomepageMediaManager';
+import type {
+  GalleryCategoryOption,
+  GalleryRow,
+  GalleryServiceOption,
+} from './HomepageMediaManager';
 
 const ACCEPT =
   '.webp,.jpg,.jpeg,.png,.heic,.heif,image/webp,image/jpeg,image/png,image/heic,image/heif';
@@ -11,9 +15,18 @@ const ACCEPT =
  * Admin-managed homepage work gallery: multi-upload from any phone, captions,
  * one-click reorder, delete. The homepage renders the first 6 by displayOrder.
  */
-export default function GalleryManager({ initialImages }: { initialImages: GalleryRow[] }) {
+export default function GalleryManager({
+  initialImages,
+  services,
+  categories: initialCategories,
+}: {
+  initialImages: GalleryRow[];
+  services: GalleryServiceOption[];
+  categories: GalleryCategoryOption[];
+}) {
   const router = useRouter();
   const [images, setImages] = useState(initialImages);
+  const [categories, setCategories] = useState(initialCategories);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -88,6 +101,28 @@ export default function GalleryManager({ initialImages }: { initialImages: Galle
     router.refresh();
   };
 
+  const moveCategory = async (index: number, dir: -1 | 1) => {
+    const a = categories[index];
+    const b = categories[index + dir];
+    if (!a || !b) return;
+    const next = [...categories];
+    next[index] = { ...b, displayOrder: a.displayOrder };
+    next[index + dir] = { ...a, displayOrder: b.displayOrder };
+    setCategories(next);
+    await Promise.all([
+      fetch('/api/admin/gallery', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ category: a.category, categoryDisplayOrder: b.displayOrder }),
+      }),
+      fetch('/api/admin/gallery', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ category: b.category, categoryDisplayOrder: a.displayOrder }),
+      }),
+    ]);
+  };
+
   const remove = async (id: string) => {
     if (!confirm('Remove this image from the gallery? The photo is deleted from storage.')) return;
     setBusy(true);
@@ -138,13 +173,28 @@ export default function GalleryManager({ initialImages }: { initialImages: Galle
 
       {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
 
+      {categories.length > 0 && (
+        <div className="mt-4 rounded border border-gray-200 bg-gray-50 p-3">
+          <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Gallery category order</p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {categories.map((category, index) => (
+              <div key={category.category} className="flex items-center gap-1 rounded border bg-white px-2 py-1 text-xs text-gray-700">
+                <span>{category.category}</span>
+                <button type="button" onClick={() => void moveCategory(index, -1)} disabled={index === 0} aria-label={`Move ${category.category} earlier`} className="px-1 disabled:opacity-30">↑</button>
+                <button type="button" onClick={() => void moveCategory(index, 1)} disabled={index === categories.length - 1} aria-label={`Move ${category.category} later`} className="px-1 disabled:opacity-30">↓</button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {images.length === 0 ? (
         <p className="mt-4 text-sm text-gray-500">No gallery photos yet.</p>
       ) : (
         <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
           {images.map((img, i) => (
             <div key={img.id} className="overflow-hidden rounded-md border border-gray-200">
-              <div className="aspect-[3/4] bg-gray-100">
+              <div className="aspect-3/4 bg-gray-100">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={img.publicUrl}
@@ -163,6 +213,16 @@ export default function GalleryManager({ initialImages }: { initialImages: Galle
                   }}
                   className="w-full rounded border border-black px-2 py-1 text-xs text-black"
                 />
+                <select
+                  value={img.serviceId ?? ''}
+                  onChange={(e) => void patch(img.id, { serviceId: e.target.value || null })}
+                  className="mt-2 w-full rounded border border-gray-300 px-2 py-1 text-xs text-black"
+                >
+                  <option value="">Unassigned service</option>
+                  {services.map((service) => (
+                    <option key={service.id} value={service.id}>{service.name} ({service.category})</option>
+                  ))}
+                </select>
                 <div className="mt-2 flex items-center justify-between">
                   <span className="text-[10px] text-gray-400">
                     {ordinal(i)} on homepage
