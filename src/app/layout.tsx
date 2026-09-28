@@ -3,6 +3,7 @@ import { Playfair_Display, Bodoni_Moda } from 'next/font/google';
 import './globals.css';
 import { AuthProvider } from '@/components/AuthProvider';
 import { ThemeProvider } from '@/components/ThemeProvider';
+import { Analytics } from '@vercel/analytics/next';
 
 // Sentry is initialized separately in sentry configs.
 // The @sentry/nextjs package should be installed for production error tracking.
@@ -55,6 +56,7 @@ export default function RootLayout({
         <AuthProvider>
           <ThemeProvider>{children}</ThemeProvider>
         </AuthProvider>
+        <Analytics />
       </body>
     </html>
   );
