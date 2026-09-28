@@ -24,6 +24,9 @@ export const BRAND = {
 /** Editorial serif class applied to every homepage section. */
 export const EDITORIAL_FONT = 'font-editorial';
 
+/** Bump after replacing fixed gallery objects directly in R2. */
+const GALLERY_CACHE_VERSION = '2026-09-28';
+
 /**
  * Image manifest for the redesign. Each entry points at a fixed R2 key.
  * Missing objects gracefully render as branded placeholders (see SmartImage),
@@ -40,12 +43,12 @@ export const HOME_IMAGES = {
     alt: 'Editorial portrait of a client with lashes by The Baddies Plug',
   },
   gallery: [
-    'https://media.thebaddiesplug.online/gallery/01.webp',
-    'https://media.thebaddiesplug.online/gallery/02.webp',
-    'https://media.thebaddiesplug.online/gallery/03.webp',
-    'https://media.thebaddiesplug.online/gallery/04.webp',
-    'https://media.thebaddiesplug.online/gallery/05.webp',
-    'https://media.thebaddiesplug.online/gallery/06.webp',
+    `https://media.thebaddiesplug.online/gallery/01.webp?v=${GALLERY_CACHE_VERSION}`,
+    `https://media.thebaddiesplug.online/gallery/02.webp?v=${GALLERY_CACHE_VERSION}`,
+    `https://media.thebaddiesplug.online/gallery/03.webp?v=${GALLERY_CACHE_VERSION}`,
+    `https://media.thebaddiesplug.online/gallery/04.webp?v=${GALLERY_CACHE_VERSION}`,
+    `https://media.thebaddiesplug.online/gallery/05.webp?v=${GALLERY_CACHE_VERSION}`,
+    `https://media.thebaddiesplug.online/gallery/06.webp?v=${GALLERY_CACHE_VERSION}`,
   ],
 } as const;
 
