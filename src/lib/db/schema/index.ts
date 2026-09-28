@@ -208,6 +208,10 @@ export const bookings = pgTable('bookings', {
   total: integer('total').notNull(), // NGN kobo
   previousBookingId: uuid('previous_booking_id'),
   createdByAdminId: uuid('created_by_admin_id'),
+  // Client-generated submission key: repeated POSTs (double-click, retry after
+  // timeout/5xx/connection reset) resolve to the same booking instead of
+  // creating duplicates. Unique when present (migration 0010).
+  idempotencyKey: varchar('idempotency_key', { length: 64 }),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   cancelledAt: timestamp('cancelled_at', { withTimezone: true }),
@@ -217,6 +221,7 @@ export const bookings = pgTable('bookings', {
   index('bookings_appointment_date_idx').on(table.appointmentDate),
   index('bookings_status_idx').on(table.status),
   index('bookings_created_at_idx').on(table.createdAt),
+  index('bookings_idempotency_key_idx').on(table.idempotencyKey),
   // Active booking unique constraint to prevent double booking.
   // Only pending/confirmed/approved bookings occupy a slot; ignored, cancelled,
   // rejected, completed, and no-show bookings must not block it.
@@ -317,6 +322,28 @@ export const notifications = pgTable('notifications', {
   index('notifications_created_at_idx').on(table.createdAt),
   index('notifications_booking_id_idx').on(table.bookingId),
   index('notifications_customer_id_idx').on(table.customerId),
+]);
+
+/**
+ * Immutable, append-only booking audit trail (migration 0010).
+ * previousBookingId alone is insufficient for a complete history; every
+ * lifecycle change (created, rescheduled, cancelled, approved, ...) is
+ * recorded here with actor and metadata. Application code never updates or
+ * deletes rows.
+ */
+export const bookingEvent = pgTable('booking_event', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  bookingId: uuid('booking_id').notNull().references(() => bookings.id, { onDelete: 'cascade' }),
+  eventType: varchar('event_type', { length: 50 }).notNull(),
+  actorType: varchar('actor_type', { length: 20 }).notNull().default('system'),
+  actorId: uuid('actor_id'),
+  relatedBookingId: uuid('related_booking_id'),
+  metadata: text('metadata'), // JSON string
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+}, (table) => [
+  index('booking_event_booking_id_idx').on(table.bookingId),
+  index('booking_event_related_booking_id_idx').on(table.relatedBookingId),
+  index('booking_event_created_at_idx').on(table.createdAt),
 ]);
 
 // Email events table
@@ -451,6 +478,14 @@ export const emailEventsRelations = relations(emailEvents, ({ one }) => ({
   booking: one(bookings, {
     fields: [emailEvents.bookingId],
     references: [bookings.id],
+  }),
+}));
+
+export const bookingEventRelations = relations(bookingEvent, ({ one }) => ({
+  booking: one(bookings, {
+    fields: [bookingEvent.bookingId],
+    references: [bookings.id],
+    relationName: 'bookingEventBooking',
   }),
 }));
 

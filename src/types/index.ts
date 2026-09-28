@@ -27,6 +27,55 @@ export type EmailEventType =
 
 export type EmailEventStatus = 'pending' | 'processing' | 'sent' | 'failed';
 
+/**
+ * Notification types. The admin list filters OUT customer-facing types (the
+ * `customer_` prefix); everything else is admin-facing. Keep these as the
+ * single vocabulary — never write free-form strings to notifications.type.
+ */
+export const NOTIFICATION_TYPES = [
+  'new_booking',
+  'booking_approved',
+  'booking_cancelled',
+  'booking_completed',
+  'booking_no_show',
+  'booking_rescheduled',
+  'customer_booking_cancelled',
+  'customer_booking_rescheduled',
+] as const;
+
+export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
+
+/** Notification types visible to the customer portal. */
+export const CUSTOMER_NOTIFICATION_TYPES = [
+  'customer_booking_cancelled',
+  'customer_booking_rescheduled',
+] as const;
+
+/** Admin-list filter: exclude customer-facing notifications. */
+export function isAdminNotification(type: string): boolean {
+  return !type.startsWith('customer_');
+}
+
+/** Admin action names and their lifecycle outcomes. */
+export type AdminBookingAction =
+  | 'approve'
+  | 'reject'
+  | 'cancel'
+  | 'complete'
+  | 'no_show'
+  | 'reschedule';
+
+/** Immutable booking audit-event vocabulary (booking_event.event_type). */
+export type BookingEventType =
+  | 'created'
+  | 'rescheduled'
+  | 'cancelled'
+  | 'approved'
+  | 'rejected'
+  | 'completed'
+  | 'no_show'
+  | 'status_changed';
+
 export type ReferenceImageFormat = 'image/jpeg' | 'image/png' | 'image/webp' | 'image/heic';
 
 export interface User {
@@ -95,6 +144,7 @@ export interface Booking {
   depositRequired: number; // in NGN kobo
   total: number; // in NGN kobo
   previousBookingId?: string | null;
+  idempotencyKey?: string | null;
   createdByAdminId?: string | null;
   createdAt: Date;
   updatedAt: Date;

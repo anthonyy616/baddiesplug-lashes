@@ -71,6 +71,13 @@
       "when": 1790000002000,
       "tag": "0009_booking_status_approved_ignored",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1790800000000,
+      "tag": "0010_audit_events_booking_idempotency",
+      "breakpoints": true
     }
   ]
 }
