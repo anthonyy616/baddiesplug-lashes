@@ -20,8 +20,9 @@ interface ReviewStepProps {
   photoCount: number;
 }
 
-const formatPrice = (kobo: number) =>
-  new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN', minimumFractionDigits: 0 }).format(kobo / 100);
+import { formatNaira } from '@/lib/format/money';
+
+const formatPrice = formatNaira;
 
 export default function ReviewStep({
   items,

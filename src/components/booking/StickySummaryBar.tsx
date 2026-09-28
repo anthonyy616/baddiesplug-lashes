@@ -22,8 +22,9 @@ interface StickySummaryBarProps {
   isSubmitting?: boolean;
 }
 
-const formatPrice = (kobo: number) =>
-  new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN', minimumFractionDigits: 0 }).format(kobo / 100);
+import { formatNairaCompact } from '@/lib/format/money';
+
+const formatPrice = formatNairaCompact;
 
 export function formatSlotLabel(slot: { startTime: string; endTime: string }): string {
   const fmt = (t: string) => {

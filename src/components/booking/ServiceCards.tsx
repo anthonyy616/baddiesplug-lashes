@@ -13,8 +13,9 @@ export interface SelectableService {
   subcategory?: string | null;
 }
 
-const formatPrice = (kobo: number) =>
-  new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN', minimumFractionDigits: 0 }).format(kobo / 100);
+import { formatNairaCompact } from '@/lib/format/money';
+
+const formatPrice = formatNairaCompact;
 
 interface ServiceCardsProps {
   services: SelectableService[];

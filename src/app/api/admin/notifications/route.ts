@@ -2,8 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { db } from '@/lib/db';
 import { notifications } from '@/lib/db/schema';
-import { eq, desc } from 'drizzle-orm';
+import { eq, desc, notLike } from 'drizzle-orm';
 import { requireAdminSession } from '@/lib/admin-auth';
+import { isAdminNotification } from '@/types';
 
 const markSchema = z.object({
   id: z.string().uuid().optional(),
@@ -14,12 +15,19 @@ export async function GET() {
   try {
     await requireAdminSession();
 
+    // Filter consistently with the admin page: exclude customer-facing
+    // notifications (customer_ prefix) here, not just in the UI. Generic
+    // booking_* types (e.g. booking_cancelled with a customerId) remain
+    // admin-visible — only the customer_ prefix marks customer-facing types.
     const all = await db.query.notifications.findMany({
+      where: notLike(notifications.type, 'customer_%'),
       orderBy: [desc(notifications.createdAt)],
       limit: 200,
     });
 
-    return NextResponse.json({ notifications: all });
+    return NextResponse.json({
+      notifications: all.filter((n) => isAdminNotification(n.type)),
+    });
   } catch (error) {
     if (error instanceof Error && error.message === 'AdminUnauthorized') {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });

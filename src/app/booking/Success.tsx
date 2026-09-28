@@ -19,19 +19,22 @@ export default function Success({ reference, whatsappUrl }: SuccessProps) {
 
   return (
     <div className="bg-white dark:bg-surface-dark rounded-xl border border-line dark:border-line-dark p-6 sm:p-10 text-center">
-      {/* Pending badge */}
+      {/* Received badge — lifecycle-accurate: new bookings are created
+          'confirmed' but require MANUAL payment approval by an admin before
+          the appointment is approved. Copy must never claim the system
+          approves bookings on its own. */}
         <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-green-100 dark:bg-green-950/40 text-green-800 dark:text-green-300 text-sm font-medium">
         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path d="M5 12l4 4L19 6" stroke="currentColor" strokeWidth="2" fill="none" />
         </svg>
-          Booking confirmed
+          Booking received
       </span>
 
       <h1 className="font-display text-3xl text-ink dark:text-ink-dark mt-6 mb-3">
-          Your booking is confirmed
+          Your booking has been received
       </h1>
       <p className="text-ink-secondary dark:text-ink-dark-secondary max-w-md mx-auto">
-          Your booking is auto-approved by our system. You will receive a confirmation by email, and if we need to reschedule, we will contact you by email or WhatsApp.
+          Your booking is reserved and awaiting payment approval. Once our team reviews your payment proof, your appointment will be approved. You will receive a confirmation by email, and if we need to reschedule, we will contact you by email or WhatsApp.
       </p>
 
       <div className="mt-5 mx-auto max-w-md rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-left text-sm text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-200">
@@ -64,7 +67,7 @@ export default function Success({ reference, whatsappUrl }: SuccessProps) {
             Send payment details via WhatsApp
           </a>
           <p className="text-xs text-ink-secondary dark:text-ink-dark-secondary mt-2">
-            Your booking has been auto approved by our system. In order to get approved and confirmed, please send us a message on WhatsApp through the link below with proof of payment to get this booking approved. Thank you.
+            To get your booking approved, please message us on WhatsApp with your proof of payment. Once payment is reviewed, your appointment will be approved. Thank you.
           </p>
           <p className="text-xs text-ink-secondary dark:text-ink-dark-secondary mt-1">
             Your booking details and deposit amount are pre-filled in the message.

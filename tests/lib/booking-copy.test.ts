@@ -8,9 +8,9 @@ import { join } from 'path';
 
 /**
  * Contract tests for the booking success copy and WhatsApp deep-link.
- * See agent/implementation/booking-status-and-analytics-plan.md:
- * - Success screen shows the new auto-approval + WhatsApp instructions text
- *   under the WhatsApp button.
+ * Terminology (P2 alignment): the success screen must NOT claim the booking
+ * is "auto-approved" — the lifecycle requires manual admin approval after
+ * payment review. It shows "booking received / awaiting payment approval".
  * - The existing "pre-filled" line is kept.
  * - WhatsApp URL contains reference, date/time, total, and deposit.
  */
@@ -21,10 +21,20 @@ describe('booking success copy', () => {
     'utf8'
   );
 
-  it('shows the required auto-approval message under the WhatsApp button', () => {
-    expect(src).toContain(
-      'Your booking has been auto approved by our system. In order to get approved and confirmed, please send us a message on WhatsApp through the link below with proof of payment to get this booking approved. Thank you.'
-    );
+  it('never claims the booking is auto-approved', () => {
+    expect(src).not.toContain('auto-approved');
+    expect(src).not.toContain('auto approved');
+    expect(src).not.toContain('auto-approval');
+  });
+
+  it('says the booking is received and awaiting payment approval', () => {
+    expect(src).toContain('Booking received');
+    expect(src).toContain('awaiting payment approval');
+  });
+
+  it('explains approval happens after payment proof review', () => {
+    expect(src).toContain('proof of payment');
+    expect(src).toContain('will be approved');
   });
 
   it('keeps the existing pre-filled message line', () => {

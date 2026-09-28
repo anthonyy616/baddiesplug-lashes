@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { formatNairaCompact } from '@/lib/format/money';
 import StepIndicator from '@/components/booking/StepIndicator';
 import StickySummaryBar, { SummaryItem } from '@/components/booking/StickySummaryBar';
 import ServiceCards, { SelectableService } from '@/components/booking/ServiceCards';
@@ -279,8 +280,7 @@ export default function BookingFlow() {
     [selectedServices, selectedAddons]
   );
 
-  const formatPriceHdr = (kobo: number) =>
-    new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN', minimumFractionDigits: 0 }).format(kobo / 100);
+  const formatPriceHdr = formatNairaCompact;
 
   const canContinue = useMemo(() => {
     switch (STEPS[stepIndex]) {

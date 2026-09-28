@@ -1,19 +1,22 @@
 import { db } from '@/lib/db';
 import { notifications } from '@/lib/db/schema';
-import { desc } from 'drizzle-orm';
+import { desc, notLike } from 'drizzle-orm';
 import { formatLagosTime } from '@/lib/timezone';
+import { isAdminNotification } from '@/types';
 import NotificationsList from './NotificationsList';
 
 export const dynamic = 'force-dynamic';
 
 export default async function AdminNotificationsPage() {
   const all = await db.query.notifications.findMany({
+    where: notLike(notifications.type, 'customer_%'),
     orderBy: [desc(notifications.createdAt)],
     limit: 200,
   });
 
-  // Filter out customer-facing notifications (customer_ prefix) from admin list
-  const items = all.filter((n) => !n.type.startsWith('customer_'));
+  // Consistent with the admin API route: customer_ prefix marks
+  // customer-facing types; everything else is admin-facing.
+  const items = all.filter((n) => isAdminNotification(n.type));
 
   return (
     <div className="space-y-6">
