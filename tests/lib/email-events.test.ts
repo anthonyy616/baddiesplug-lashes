@@ -141,6 +141,18 @@ describe('atomic claim / lease (P0-2)', () => {
     expect(src).toMatch(/const LEASE_MS = /);
   });
 
+  it('serializes the lease cutoff as an ISO string (raw Date breaks the driver)', () => {
+    // Regression: passing a raw Date into a raw sql`` fragment is not
+    // serialized by the driver — postgres.js throws ERR_INVALID_ARG_TYPE.
+    // The cutoff must be an ISO string with an explicit ::timestamptz cast.
+    const src = read('src/lib/email/events.ts');
+    const fnStart = src.indexOf('export async function processEmailEvent');
+    const fnBody = src.slice(fnStart, src.indexOf('export function dispatchEmailEvent'));
+    expect(fnBody).toContain('.toISOString()');
+    expect(fnBody).toContain('::timestamptz');
+    expect(fnBody).not.toMatch(/\$\{new Date/);
+  });
+
   it('render-time validation fails invalid payloads instead of rendering zero', () => {
     const src = read('src/lib/email/events.ts');
     const fnStart = src.indexOf('export async function processEmailEvent');

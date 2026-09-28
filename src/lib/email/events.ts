@@ -124,6 +124,9 @@ export async function processEmailEvent(eventId: string): Promise<boolean> {
 
   // Atomic claim: pending|stale-processing -> processing. Guarded on the
   // previous state, so only ONE concurrent dispatcher wins the send.
+  // Note: the lease cutoff is passed as an ISO string with an explicit cast —
+  // raw Date objects in raw sql`` fragments are not serialized by the driver.
+  const leaseCutoff = new Date(Date.now() - LEASE_MS).toISOString();
   const claimed = await db
     .update(emailEvents)
     .set({
@@ -135,7 +138,7 @@ export async function processEmailEvent(eventId: string): Promise<boolean> {
       and(
         eq(emailEvents.id, eventId),
         // Claimable states: pending, or processing with an expired lease.
-        sql`(${emailEvents.status} = 'pending' OR (${emailEvents.status} = 'processing' AND ${emailEvents.updatedAt} < ${new Date(Date.now() - LEASE_MS)}))`,
+        sql`(${emailEvents.status} = 'pending' OR (${emailEvents.status} = 'processing' AND ${emailEvents.updatedAt} < ${leaseCutoff}::timestamptz))`,
         sql`${emailEvents.attempts} <= ${MAX_ATTEMPTS}`,
       ),
     )
