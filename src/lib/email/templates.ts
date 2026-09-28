@@ -92,11 +92,26 @@ export function generateAppointmentReminderEmail(input: BookingEmailBase & {
 export function generateBookingRescheduledEmail(input: BookingEmailBase & {
   previousReference: string;
   services: string[];
+  addons?: string[];
+  // Old appointment details, shown alongside the new slot
+  previousDate?: string;
+  previousStartTime?: string;
+  previousEndTime?: string;
+  // Approval state carried over from the original booking
+  wasApproved?: boolean;
 }): string {
+  const previous = input.previousDate
+    ? `<p><strong>Previous appointment:</strong> ${escapeHtml(input.previousDate)} ${escapeHtml(input.previousStartTime ?? '')} - ${escapeHtml(input.previousEndTime ?? '')} (ref ${escapeHtml(input.previousReference)})</p>`
+    : `<p><strong>Previous reference:</strong> ${escapeHtml(input.previousReference)}</p>`;
+  const approvalNote = input.wasApproved
+    ? '<p>Your booking remains <strong>approved</strong> — no further action is needed.</p>'
+    : '';
+
   return baseEmail('Booking Rescheduled', input, `
     <p>Your booking has been rescheduled by the admin.</p>
-    <p><strong>Previous reference:</strong> ${escapeHtml(input.previousReference)}</p>
-    ${serviceList(input.services, [])}
+    ${previous}
+    ${approvalNote}
+    ${serviceList(input.services, input.addons ?? [])}
     <p>Your new appointment details are above.</p>
     <p>If you have any questions, please contact us.</p>
   `);

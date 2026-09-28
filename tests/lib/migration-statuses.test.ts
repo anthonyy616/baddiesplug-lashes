@@ -63,12 +63,20 @@ describe('migration journal', () => {
   it('registers migration 0009 after the previous entries', () => {
     const tags = journal.entries.map((e: { tag: string }) => e.tag);
     expect(tags).toContain('0009_booking_status_approved_ignored');
-    expect(tags.indexOf('0009_booking_status_approved_ignored')).toBe(
-      tags.length - 1
-    );
     expect(tags.indexOf('0009_booking_status_approved_ignored')).toBeGreaterThan(
       tags.indexOf('0008_fix_active_booking_slot_unique')
     );
+  });
+
+  it('registers migration 0010 (audit events + idempotency) last', () => {
+    const tags = journal.entries.map((e: { tag: string }) => e.tag);
+    expect(tags).toContain('0010_audit_events_booking_idempotency');
+    expect(tags.indexOf('0010_audit_events_booking_idempotency')).toBe(
+      tags.length - 1
+    );
+    expect(
+      tags.indexOf('0010_audit_events_booking_idempotency')
+    ).toBeGreaterThan(tags.indexOf('0009_booking_status_approved_ignored'));
   });
 
   it('has unique, sequential idx values', () => {

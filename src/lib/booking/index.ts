@@ -1,5 +1,5 @@
 import { db } from '@/lib/db';
-import { bookings, bookingServices, bookingAddons, notifications, emailEvents, payments, referenceImages } from '@/lib/db/schema';
+import { bookings, bookingServices, bookingAddons, notifications, payments, referenceImages } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 import { v4 as uuidv4 } from 'uuid';
 import { requireAuth } from '@/lib/auth/types';
@@ -10,7 +10,7 @@ import {
 } from '@/lib/pricing';
 import { parseSlotToDateTime, getCancellationDeadline } from '@/lib/timezone';
 import { isCustomerVisible } from '@/lib/booking/lifecycle';
-import { queueEmailEvent, dispatchEmailEvent } from '@/lib/email/events';
+import { queueEmailEvent, getDispatchableEventIds, dispatchEmailEvent } from '@/lib/email/events';
 import { generateBookingPaymentLink, generateCancellationLink } from '@/lib/whatsapp';
 import { getPaymentProvider } from '@/lib/payments';
 import type { PaymentRecord } from '@/lib/payments';
@@ -140,7 +140,8 @@ export async function createBooking(
         createdAt: now,
       });
 
-      // Durable email event — booking transaction is independent of delivery
+      // Durable email event — joined to the booking transaction so an
+      // invalid payload or a rollback cannot orphan the event.
       await queueEmailEvent({
         eventType: 'booking.confirmed',
         recipient: user.email,
@@ -156,7 +157,7 @@ export async function createBooking(
           total: priceSnapshot.total,
           depositRequired: priceSnapshot.depositRequired,
         },
-      });
+      }, tx);
 
       const adminEmail = process.env.ADMIN_EMAIL?.trim();
       if (adminEmail) {
@@ -178,7 +179,7 @@ export async function createBooking(
             total: priceSnapshot.total,
             depositRequired: priceSnapshot.depositRequired,
           },
-        });
+        }, tx);
       } else {
         console.warn('ADMIN_EMAIL is not configured; booking admin email was not queued.');
       }
@@ -196,13 +197,9 @@ export async function createBooking(
       notes
     );
 
-    // Best-effort async dispatch of queued emails
-    const queued = await db
-      .select({ id: emailEvents.id })
-      .from(emailEvents)
-      .where(eq(emailEvents.bookingId, bookingId));
-    for (const event of queued) {
-      dispatchEmailEvent(event.id);
+    // Best-effort async dispatch of queued emails — after commit
+    for (const eventId of await getDispatchableEventIds(bookingId)) {
+      dispatchEmailEvent(eventId);
     }
 
     return {
@@ -300,16 +297,12 @@ export async function cancelBooking(bookingId: string): Promise<{ success: boole
           startTime: booking.startTime,
           endTime: booking.endTime,
         },
-      });
+      }, tx);
     });
 
-    // Async dispatch of queued emails
-    const queued = await db
-      .select({ id: emailEvents.id })
-      .from(emailEvents)
-      .where(eq(emailEvents.bookingId, bookingId));
-    for (const event of queued) {
-      dispatchEmailEvent(event.id);
+    // Async dispatch of queued emails — only after commit
+    for (const eventId of await getDispatchableEventIds(bookingId)) {
+      dispatchEmailEvent(eventId);
     }
 
     // WhatsApp link for refund questions
@@ -511,10 +504,11 @@ export async function rescheduleBooking(
 
       await tx.insert(notifications).values({
         id: uuidv4(),
-        type: 'new_booking',
+        type: 'customer_booking_rescheduled',
         bookingId: newBookingId,
+        customerId: originalBooking.customerId,
         title: 'Booking Rescheduled',
-        message: `Booking ${originalBooking.reference} rescheduled to ${newDate} ${newStartTime} (ref ${newReference})`,
+        message: `Your booking ${originalBooking.reference} has been rescheduled to ${newDate} ${newStartTime} (ref ${newReference})`,
         isRead: false,
         createdAt: now,
       });

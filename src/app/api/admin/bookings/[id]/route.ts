@@ -6,7 +6,7 @@ import { eq, and, sql } from 'drizzle-orm';
 import { v4 as uuidv4 } from 'uuid';
 import { requireAdmin } from '@/lib/auth/types';
 import type { BookingStatus } from '@/types';
-import { queueEmailEvent, dispatchEmailEvent } from '@/lib/email/events';
+import { queueEmailEvent, getDispatchableEventIds, dispatchEmailEvent } from '@/lib/email/events';
 import { getBookingById } from '@/lib/booking';
 import { canTransition } from '@/lib/booking/lifecycle';
 import { isSlotAvailable } from '@/lib/availability';
@@ -164,18 +164,36 @@ export async function PATCH(
             where: eq(users.id, booking.customerId),
           });
 
-          await queueEmailEvent({
-            eventType,
-            recipient: customer?.email || '',
-            bookingId: id,
-            payload: {
-              customerName: customer?.name || 'Customer',
-              reference: booking.reference,
-              date: booking.appointmentDate,
-              startTime: booking.startTime,
-              endTime: booking.endTime,
-            },
+          // Build the email payload from the booking's PERSISTED snapshots so
+          // pricing is never missing: the renderer must never fall back to
+          // ₦0.00 for a priced event. Services/add-ons come from the snapshot
+          // tables (historical prices).
+          const snapshotServices = await tx.query.bookingServices.findMany({
+            where: eq(bookingServices.bookingId, id),
           });
+          const snapshotAddons = await tx.query.bookingAddons.findMany({
+            where: eq(bookingAddons.bookingId, id),
+          });
+
+          await queueEmailEvent(
+            {
+              eventType,
+              recipient: customer?.email || '',
+              bookingId: id,
+              payload: {
+                customerName: customer?.name || 'Customer',
+                reference: booking.reference,
+                date: booking.appointmentDate,
+                startTime: booking.startTime,
+                endTime: booking.endTime,
+                services: snapshotServices.map((s) => s.serviceNameSnapshot),
+                addons: snapshotAddons.map((a) => a.addonNameSnapshot),
+                total: booking.total,
+                depositRequired: booking.depositRequired,
+              },
+            },
+            tx,
+          );
         }
 
         // Reschedule: cancel old booking, create new approved booking
@@ -285,21 +303,30 @@ export async function PATCH(
             createdAt: rescheduleNow,
           });
 
-          // Queue reschedule email to customer
-          await queueEmailEvent({
-            eventType: 'booking.rescheduled',
-            recipient: customer?.email || '',
-            bookingId: newBookingId,
-            payload: {
-              customerName: customer?.name || 'Customer',
-              reference: newReference,
-              previousReference: booking.reference,
-              date: newDate,
-              startTime: newStartTime,
-              endTime: newEndTime,
-              services: oldServices.map((s) => s.serviceNameSnapshot),
+          // Queue reschedule email to customer (old AND new appointment data,
+          // plus carried-over approval state) — joined to the transaction.
+          await queueEmailEvent(
+            {
+              eventType: 'booking.rescheduled',
+              recipient: customer?.email || '',
+              bookingId: newBookingId,
+              payload: {
+                customerName: customer?.name || 'Customer',
+                reference: newReference,
+                previousReference: booking.reference,
+                date: newDate,
+                startTime: newStartTime,
+                endTime: newEndTime,
+                previousDate: booking.appointmentDate,
+                previousStartTime: booking.startTime,
+                previousEndTime: booking.endTime,
+                wasApproved: booking.status === 'approved',
+                services: oldServices.map((s) => s.serviceNameSnapshot),
+                addons: oldAddons.map((a) => a.addonNameSnapshot),
+              },
             },
-          });
+            tx,
+          );
 
           // Return new booking info via a response extension (set on the request for after-transaction pickup)
           (request as any)._rescheduleResult = { newBookingId, newReference };
@@ -307,18 +334,19 @@ export async function PATCH(
       }
     });
 
-    // Best-effort async dispatch
-    const queued = await db
-      .select({ id: emailEvents.id })
-      .from(emailEvents)
-      .where(eq(emailEvents.bookingId, id));
-    for (const event of queued) {
-      dispatchEmailEvent(event.id);
+    // Best-effort async dispatch — only after the transaction committed.
+    // Query BOTH the old booking's events and (for reschedules) the new
+    // booking's events, since the reschedule email is filed under the new id.
+    const rescheduleResult = (request as any)._rescheduleResult as { newBookingId: string; newReference: string } | undefined;
+    const eventIds = [
+      ...(await getDispatchableEventIds(id)),
+      ...(rescheduleResult ? await getDispatchableEventIds(rescheduleResult.newBookingId) : []),
+    ];
+    for (const eventId of eventIds) {
+      dispatchEmailEvent(eventId);
     }
 
     void admin;
-
-    const rescheduleResult = (request as any)._rescheduleResult as { newBookingId: string; newReference: string } | undefined;
 
     if (rescheduleResult) {
       return NextResponse.json({

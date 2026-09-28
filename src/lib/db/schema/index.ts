@@ -359,6 +359,9 @@ export const emailEvents = pgTable('email_events', {
   scheduledFor: timestamp('scheduled_for', { withTimezone: true }).notNull(),
   sentAt: timestamp('sent_at', { withTimezone: true }),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  // Lease/claim timestamp for the atomic email-worker claim (set on claim,
+  // refreshed on finalize; also marks when an event last changed state).
+  updatedAt: timestamp('updated_at', { withTimezone: true }),
 }, (table) => [
   index('email_events_status_scheduled_for_idx').on(table.status, table.scheduledFor),
   index('email_events_booking_id_idx').on(table.bookingId),
