@@ -17,7 +17,8 @@
     "test:watch": "vitest",
     "test:oauth": "vitest run tests/auth/oauth.test.ts",
     "clean": "rm -rf .next node_modules/.cache",
-    "clean:install": "rm -rf .next node_modules && npm ci"
+    "clean:install": "rm -rf .next node_modules && npm ci",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@auth/drizzle-adapter": "^1.11.3",
@@ -47,6 +48,7 @@
     "zod": "^4.5.4"
   },
   "devDependencies": {
+    "@playwright/test": "^1.63.0",
     "@tailwindcss/postcss": "^4.3.3",
     "@types/bcryptjs": "^2.4.6",
     "@types/node": "^26.4.1",

@@ -47,3 +47,7 @@ docs/*
 .env.sentry-build-plugin
 
 db/schema.sql
+# Playwright
+test-results/
+playwright-report/
+e2e/.auth/
