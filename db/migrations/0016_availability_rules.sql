@@ -28,22 +28,22 @@ CREATE TABLE IF NOT EXISTS "availability_rules" (
   --                         for that weekday
   --   'weekday_hours'     : replace standard hours for a weekday
   --   'recurring_break'   : weekly break window on a weekday
-  "ruleType" varchar(30) NOT NULL,
+  "rule_type" varchar(30) NOT NULL,
   -- 0=Sunday .. 6=Saturday (weekday-scoped rules only)
-  "dayOfWeek" integer,
+  "day_of_week" integer,
   -- Inclusive bounds; both set for date-range rules, single use for others.
-  "startDate" varchar(10), -- YYYY-MM-DD
-  "endDate" varchar(10),   -- YYYY-MM-DD
+  "start_date" varchar(10), -- YYYY-MM-DD
+  "end_date" varchar(10),   -- YYYY-MM-DD
   -- Working/break window (HH:MM) for weekday/break rules.
-  "startTime" varchar(5),
-  "endTime" varchar(5),
+  "start_time" varchar(5),
+  "end_time" varchar(5),
   "label" varchar(120),
-  "isActive" boolean NOT NULL DEFAULT true,
-  "createdByAdminId" uuid,
-  "createdAt" timestamp with time zone NOT NULL DEFAULT now(),
-  "updatedAt" timestamp with time zone NOT NULL DEFAULT now()
+  "is_active" boolean NOT NULL DEFAULT true,
+  "created_by_admin_id" uuid,
+  "created_at" timestamp with time zone NOT NULL DEFAULT now(),
+  "updated_at" timestamp with time zone NOT NULL DEFAULT now()
 );
 
-CREATE INDEX IF NOT EXISTS "availability_rules_active_idx" ON "availability_rules" ("isActive");
-CREATE INDEX IF NOT EXISTS "availability_rules_rule_type_idx" ON "availability_rules" ("ruleType");
-CREATE INDEX IF NOT EXISTS "availability_rules_dates_idx" ON "availability_rules" ("startDate", "endDate");
+CREATE INDEX IF NOT EXISTS "availability_rules_active_idx" ON "availability_rules" ("is_active");
+CREATE INDEX IF NOT EXISTS "availability_rules_rule_type_idx" ON "availability_rules" ("rule_type");
+CREATE INDEX IF NOT EXISTS "availability_rules_dates_idx" ON "availability_rules" ("start_date", "end_date");

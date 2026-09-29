@@ -11,6 +11,7 @@ import { eq, and, sql } from 'drizzle-orm';
 import CustomerNotifications from '@/components/account/CustomerNotifications';
 import ProfileSettings from '@/components/account/ProfileSettings';
 import FavouriteServices from '@/components/account/FavouriteServices';
+import RewardsSection from '@/components/account/RewardsSection';
 import ReschedulePolicy from '@/components/booking/ReschedulePolicy';
 
 export const dynamic = 'force-dynamic';
@@ -88,6 +89,9 @@ export default async function AccountPage() {
 
         {/* Favourite services (Stage 3) — session-scoped to this customer */}
         <FavouriteServices />
+
+        {/* Loyalty/promo rewards (Stage 10) — read-only; applied at checkout */}
+        <RewardsSection customerId={user.id} />
 
         {/* Rescheduling is admin-controlled — customers request changes by contact */}
         <ReschedulePolicy compact />

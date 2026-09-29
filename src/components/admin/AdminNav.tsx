@@ -53,6 +53,7 @@ const NAV_SECTIONS: { title?: string; items: NavItem[] }[] = [
     title: 'People',
     items: [
       { href: '/admin/customers', label: 'Customers', icon: <IconUsers /> },
+      { href: '/admin/loyalty', label: 'Loyalty & Promos', icon: <IconTag /> },
       { href: '/admin/notifications', label: 'Notifications', icon: <IconBell /> },
     ],
   },
@@ -293,6 +294,13 @@ function IconHelp() {
   return (
     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9.75a3.75 3.75 0 117.544 0c0 1.688-1.02 2.482-2.19 3.23-.95.607-1.582 1.078-1.582 2.02M12 18h.008M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+    </svg>
+  );
+}
+function IconTag() {
+  return (
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
     </svg>
   );
 }

@@ -263,6 +263,12 @@ export const bookings = pgTable('bookings', {
   subtotal: integer('subtotal').notNull(), // NGN kobo
   depositRequired: integer('deposit_required').notNull(), // NGN kobo
   total: integer('total').notNull(), // NGN kobo
+  // Loyalty/promo snapshot (Stage 10): catalog price (subtotal/total) is kept
+  // unchanged; discount_amount = subtotal - final_total. Snapped at booking
+  // time so later code changes never rewrite history.
+  discountCode: varchar('discount_code', { length: 40 }),
+  discountAmount: integer('discount_amount'),
+  finalTotal: integer('final_total'),
   previousBookingId: uuid('previous_booking_id'),
   createdByAdminId: uuid('created_by_admin_id'),
   // Where the booking came from: 'customer' (website flow) or 'admin'
@@ -375,6 +381,48 @@ export const availabilityRules = pgTable('availability_rules', {
   index('availability_rules_active_idx').on(table.isActive),
   index('availability_rules_rule_type_idx').on(table.ruleType),
   index('availability_rules_dates_idx').on(table.startDate, table.endDate),
+]);
+
+/**
+ * Loyalty + promotional codes (Stage 10). One unified retention/discount
+ * system: admin-created codes (customer-specific loyalty or general promo),
+ * server-side validation, per-use redemption audit, and booking-side
+ * snapshots so later code changes never rewrite history.
+ */
+export const loyaltyCodes = pgTable('loyalty_codes', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  code: varchar('code', { length: 40 }).notNull(),
+  codeType: varchar('code_type', { length: 10 }).notNull().default('loyalty'),
+  customerId: uuid('customer_id').references(() => users.id, { onDelete: 'cascade' }),
+  discountPercent: integer('discount_percent').notNull(),
+  // JSON array of service uuids; null = all active services.
+  applicableServiceIds: text('applicable_service_ids'),
+  startsAt: timestamp('starts_at', { withTimezone: true }),
+  expiresAt: timestamp('expires_at', { withTimezone: true }),
+  usageLimit: integer('usage_limit'),
+  usageCount: integer('usage_count').notNull().default(0),
+  isActive: boolean('is_active').notNull().default(true),
+  revokedAt: timestamp('revoked_at', { withTimezone: true }),
+  note: varchar('note', { length: 255 }),
+  createdByAdminId: uuid('created_by_admin_id'),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+}, (table) => [
+  index('loyalty_codes_customer_id_idx').on(table.customerId),
+  index('loyalty_codes_active_idx').on(table.isActive),
+]);
+
+/** Per-use redemption audit for loyalty/promo codes. */
+export const loyaltyCodeRedemptions = pgTable('loyalty_code_redemptions', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  codeId: uuid('code_id').references(() => loyaltyCodes.id, { onDelete: 'cascade' }),
+  bookingId: uuid('booking_id').references(() => bookings.id, { onDelete: 'cascade' }),
+  customerId: uuid('customer_id').references(() => users.id, { onDelete: 'cascade' }),
+  discountAmount: integer('discount_amount').notNull(),
+  redeemedAt: timestamp('redeemed_at', { withTimezone: true }).defaultNow().notNull(),
+}, (table) => [
+  index('loyalty_code_redemptions_code_id_idx').on(table.codeId),
+  index('loyalty_code_redemptions_booking_id_idx').on(table.bookingId),
 ]);
 
 // Reference images table
@@ -551,6 +599,29 @@ export const bookingAddonsRelations = relations(bookingAddons, ({ one }) => ({
   addon: one(addons, {
     fields: [bookingAddons.addonId],
     references: [addons.id],
+  }),
+}));
+
+export const loyaltyCodesRelations = relations(loyaltyCodes, ({ one, many }) => ({
+  customer: one(users, {
+    fields: [loyaltyCodes.customerId],
+    references: [users.id],
+  }),
+  redemptions: many(loyaltyCodeRedemptions),
+}));
+
+export const loyaltyCodeRedemptionsRelations = relations(loyaltyCodeRedemptions, ({ one }) => ({
+  code: one(loyaltyCodes, {
+    fields: [loyaltyCodeRedemptions.codeId],
+    references: [loyaltyCodes.id],
+  }),
+  booking: one(bookings, {
+    fields: [loyaltyCodeRedemptions.bookingId],
+    references: [bookings.id],
+  }),
+  customer: one(users, {
+    fields: [loyaltyCodeRedemptions.customerId],
+    references: [users.id],
   }),
 }));
 

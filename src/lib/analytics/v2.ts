@@ -519,13 +519,28 @@ function standardTemplateHours(): Record<string, number> {
 }
 
 /**
- * Discount impact (Stage 10 preview): the booking discount columns are added
- * by the Stage 10 migration; until then this reports the neutral zero state
- * so the shape is stable and loyalty usage can plug in after Stage 10.
+ * Discount impact (Stage 10): reads the booking-side discount snapshots
+ * (discount_amount written at booking time), so the aggregate always matches
+ * what customers actually received regardless of later code changes.
  */
-async function getDiscountImpact(_range: AnalyticsRange) {
+async function getDiscountImpact(range: AnalyticsRange) {
+  const [row] = await db
+    .select({
+      bookingsWithDiscount: sql<number>`count(*)`,
+      totalDiscount: sql<number>`coalesce(sum(${bookings.discountAmount}), 0)`,
+    })
+    .from(bookings)
+    .where(
+      and(
+        gte(bookings.appointmentDate, range.from),
+        lte(bookings.appointmentDate, range.to),
+        inArray(bookings.status, REVENUE_STATUSES as unknown as string[]),
+        sql`${bookings.discountAmount} IS NOT NULL`
+      )
+    );
+
   return {
-    bookingsWithDiscount: 0,
-    totalDiscount: null as number | null,
+    bookingsWithDiscount: Number(row?.bookingsWithDiscount || 0),
+    totalDiscount: naira(Number(row?.totalDiscount || 0)),
   };
 }

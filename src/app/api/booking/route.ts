@@ -17,6 +17,13 @@ const bookingSchema = z.object({
   // after timeout/5xx/connection reset, double-click) must resolve to the
   // original booking instead of creating a duplicate.
   submissionKey: z.string().min(8).max(64),
+  // Stage 10: optional loyalty/promo code. Only the code STRING travels from
+  // the client — the discount is validated and computed server-side.
+  discountCode: z
+    .string()
+    .trim()
+    .regex(/^[A-Za-z0-9]{4,40}$/, 'Invalid code format')
+    .optional(),
 });
 
 async function withRetry<T>(fn: () => Promise<T>, maxAttempts = 3): Promise<T> {
@@ -60,7 +67,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { serviceIds, addonIds, date, startTime, endTime, phone, notes, submissionKey } =
+    const { serviceIds, addonIds, date, startTime, endTime, phone, notes, submissionKey, discountCode } =
       parsed.data;
 
     // Idempotency fast-path: if this exact submission already created a
@@ -98,6 +105,7 @@ export async function POST(request: NextRequest) {
         phone,
         notes,
         submissionKey,
+        discountCode,
       ),
     );
 
@@ -123,6 +131,12 @@ export async function POST(request: NextRequest) {
         });
       }
       if (result.error === 'At least one service is required') {
+        return NextResponse.json({ success: false, error: result.error }, { status: 400 });
+      }
+      // Stage 10: discount codes fail with a prefixed reason — invalid codes
+      // must never block a booking UNLESS the customer explicitly asked to
+      // use one, in which case the booking is rejected with a clear reason.
+      if (result.error?.startsWith('discount_code_')) {
         return NextResponse.json({ success: false, error: result.error }, { status: 400 });
       }
       return NextResponse.json({

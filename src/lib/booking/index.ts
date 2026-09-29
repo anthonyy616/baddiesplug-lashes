@@ -11,6 +11,7 @@ import {
 import { parseSlotToDateTime, getCancellationDeadline } from '@/lib/timezone';
 import { isCustomerVisible } from '@/lib/booking/lifecycle';
 import { recordBookingEvent } from '@/lib/booking/audit';
+import { validateAndApplyCode, recordRedemption, depositFromFinalTotal } from '@/lib/loyalty';
 import { cancelPendingReminders } from '@/lib/jobs';
 import { queueEmailEvent, getDispatchableEventIds, dispatchEmailEvent } from '@/lib/email/events';
 import { generateBookingPaymentLink, generateCancellationLink } from '@/lib/whatsapp';
@@ -46,7 +47,9 @@ export async function createBooking(
   endTime: string,
   phone: string,
   notes?: string,
-  submissionKey?: string
+  submissionKey?: string,
+  // Optional loyalty/promo code string — validated SERVER-SIDE only.
+  discountCode?: string
 ): Promise<CreateBookingResult> {
   try {
     // Authenticate user
@@ -87,6 +90,40 @@ export async function createBooking(
       return { success: false, error: 'One or more selected add-ons are unavailable' };
     }
 
+    // Stage 10: optional loyalty/promo code. The client sends ONLY the code
+    // string — the discount percent, amount, and final total are computed
+    // here from the server-side price snapshot, never trusted from the
+    // browser. Deposit rules apply AFTER the discount (deposit = max(50% of
+    // final total, 500000 kobo)).
+    let discount: {
+      codeId: string;
+      code: string;
+      discountAmount: number;
+      finalTotal: number;
+    } | null = null;
+    if (discountCode && discountCode.trim()) {
+      const codeResult = await validateAndApplyCode({
+        code: discountCode,
+        customerId: user.id,
+        serviceIds,
+        subtotal: priceSnapshot.subtotal,
+      });
+      if (!codeResult.ok) {
+        return { success: false, error: `discount_code_${codeResult.error}` };
+      }
+      discount = {
+        codeId: codeResult.codeId,
+        code: codeResult.code,
+        discountAmount: codeResult.discountAmount,
+        finalTotal: codeResult.finalTotal,
+      };
+    }
+
+    const payableTotal = discount ? discount.finalTotal : priceSnapshot.total;
+    const payableDeposit = discount
+      ? depositFromFinalTotal(discount.finalTotal)
+      : priceSnapshot.depositRequired;
+
     const reference = generateBookingReference();
     const bookingId = uuidv4();
     const now = new Date();
@@ -107,12 +144,31 @@ export async function createBooking(
         phone,
         customerNotes: notes || '',
         subtotal: priceSnapshot.subtotal,
-        depositRequired: priceSnapshot.depositRequired,
+        depositRequired: payableDeposit,
         total: priceSnapshot.total,
+        // Stage 10 discount snapshot — catalogue totals stay untouched.
+        discountCode: discount?.code ?? null,
+        discountAmount: discount?.discountAmount ?? null,
+        finalTotal: discount?.finalTotal ?? null,
         idempotencyKey: submissionKey ?? null,
         createdAt: now,
         updatedAt: now,
       });
+
+      // Redemption + usage increment INSIDE the booking transaction: a
+      // concurrent revocation or exhausted limit fails the whole booking
+      // rather than granting an unvalidated discount.
+      if (discount) {
+        await recordRedemption(
+          {
+            codeId: discount.codeId,
+            bookingId,
+            customerId: user.id,
+            discountAmount: discount.discountAmount,
+          },
+          tx
+        );
+      }
 
       // Service snapshots (historical prices)
       if (priceSnapshot.services.length > 0) {
@@ -166,8 +222,11 @@ export async function createBooking(
           endTime,
           services: priceSnapshot.services.map((s) => s.name),
           addons: priceSnapshot.addons.map((a) => a.name),
-          total: priceSnapshot.total,
-          depositRequired: priceSnapshot.depositRequired,
+          total: payableTotal,
+          depositRequired: payableDeposit,
+          discount: discount
+            ? { code: discount.code, amount: discount.discountAmount }
+            : undefined,
         },
       }, tx);
 
@@ -188,8 +247,11 @@ export async function createBooking(
             endTime,
             services: priceSnapshot.services.map((s) => s.name),
             addons: priceSnapshot.addons.map((a) => a.name),
-            total: priceSnapshot.total,
-            depositRequired: priceSnapshot.depositRequired,
+            total: payableTotal,
+            depositRequired: payableDeposit,
+            discount: discount
+              ? { code: discount.code, amount: discount.discountAmount }
+              : undefined,
           },
         }, tx);
       } else {
@@ -197,15 +259,16 @@ export async function createBooking(
       }
     });
 
-    // WhatsApp deep link for payment instructions (not an API dependency)
+    // WhatsApp deep link for payment instructions (not an API dependency) —
+    // uses the POST-DISCOUNT totals so payment instructions match the booking.
     const whatsappUrl = generateBookingPaymentLink(
       reference,
       user.name,
       date,
       startTime,
       endTime,
-      priceSnapshot.total,
-      priceSnapshot.depositRequired,
+      payableTotal,
+      payableDeposit,
       notes
     );
 
