@@ -1,8 +1,9 @@
 import { db } from '@/lib/db';
-import { availabilityOverrides } from '@/lib/db/schema';
-import { eq } from 'drizzle-orm';
+import { availabilityOverrides, availabilityRules } from '@/lib/db/schema';
+import { eq, desc } from 'drizzle-orm';
 import { getCurrentLagosDate } from '@/lib/timezone';
 import AvailabilityManager from './AvailabilityManager';
+import RulesManager from './RulesManager';
 
 export const dynamic = 'force-dynamic';
 
@@ -17,6 +18,12 @@ export default async function AdminAvailabilityPage({
   const overrides = await db.query.availabilityOverrides.findMany({
     where: eq(availabilityOverrides.date, date),
   });
+
+  // Advanced rules (Stage 9) — recurring/date-range layer.
+  const rules = await db
+    .select()
+    .from(availabilityRules)
+    .orderBy(desc(availabilityRules.createdAt));
 
   return (
     <div className="space-y-6">
@@ -36,6 +43,27 @@ export default async function AdminAvailabilityPage({
           reason: o.reason,
         }))}
       />
+
+      {/* Advanced rules (Stage 9): holidays, vacation, custom days/hours, breaks */}
+      <div>
+        <h2 className="text-xl font-bold text-gray-900">Advanced Rules</h2>
+        <p className="text-gray-600 text-sm mb-4">
+          Recurring and date-range rules. Precedence: base schedule → rules → per-date overrides → booked slots.
+        </p>
+        <RulesManager
+          initialRules={rules.map((r) => ({
+            id: r.id,
+            ruleType: r.ruleType,
+            dayOfWeek: r.dayOfWeek,
+            startDate: r.startDate,
+            endDate: r.endDate,
+            startTime: r.startTime,
+            endTime: r.endTime,
+            label: r.label,
+            isActive: r.isActive,
+          }))}
+        />
+      </div>
     </div>
   );
 }

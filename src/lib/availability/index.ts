@@ -11,6 +11,7 @@ import {
   slotToKey,
   type Slot,
 } from '@/lib/timezone';
+import { getActiveRules, getSlotsWithRules } from '@/lib/availability/rules';
 
 export interface AvailableSlot extends Slot {
   available: boolean;
@@ -141,15 +142,20 @@ export async function getAvailableSlots(date: string, _db?: typeof db): Promise<
     return [];
   }
 
-  // Get standard slots for the day (empty on closed days)
-  const standardSlots = getStandardSlots(date);
+  // LAYER 1+2 (Stage 9): standard template AFTER advanced rules (holidays,
+  // vacation closures, custom working days/hours, recurring breaks). The
+  // rules module is the centralized authority for this layer.
+  const rules = await getActiveRules();
+  const standardSlots = getSlotsWithRules(date, rules);
 
   // Get admin overrides + booked slots in parallel, cached for this request.
   const { overrides, bookedSlots } = await getAvailabilityData(date, _db);
 
   const standardKeys = new Set(standardSlots.map(slotToKey));
 
-  // Slots explicitly opened by admin (may exist on closed days)
+  // LAYER 3: slots explicitly opened by admin override (may exist on closed
+  // days, and intentionally re-open rule-closed dates — explicit admin intent
+  // outranks recurring rules).
   const openedSlots: Slot[] = overrides
     .filter((o) => o.mode === 'available')
     .map((o) => ({ date, startTime: o.startTime, endTime: o.endTime }))

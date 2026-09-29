@@ -353,6 +353,30 @@ export const availabilityOverrides = pgTable('availability_overrides', {
   index('availability_overrides_date_idx').on(table.date),
 ]);
 
+/**
+ * Advanced availability rules (Stage 9). Recurring/date-range administration
+ * layer between the base schedule and admin overrides. Precedence is
+ * documented and implemented in src/lib/availability/rules.ts.
+ */
+export const availabilityRules = pgTable('availability_rules', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  ruleType: varchar('ruleType', { length: 30 }).notNull(),
+  dayOfWeek: integer('day_of_week'),
+  startDate: varchar('start_date', { length: 10 }),
+  endDate: varchar('end_date', { length: 10 }),
+  startTime: varchar('start_time', { length: 5 }),
+  endTime: varchar('end_time', { length: 5 }),
+  label: varchar('label', { length: 120 }),
+  isActive: boolean('is_active').notNull().default(true),
+  createdByAdminId: uuid('created_by_admin_id'),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+}, (table) => [
+  index('availability_rules_active_idx').on(table.isActive),
+  index('availability_rules_rule_type_idx').on(table.ruleType),
+  index('availability_rules_dates_idx').on(table.startDate, table.endDate),
+]);
+
 // Reference images table
 export const referenceImages = pgTable('reference_images', {
   id: uuid('id').primaryKey().defaultRandom(),
