@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, Suspense } from 'react';
-import { signIn } from 'next-auth/react';
+import { signIn, signOut } from 'next-auth/react';
 import { useRouter, useSearchParams } from 'next/navigation';
 
 type Mode = 'signin' | 'signup';
@@ -94,9 +94,10 @@ function SignInContent() {
     }
   };
 
-  const oauth = (provider: 'google') => {
+  const oauth = async (provider: 'google') => {
     setIsLoading(true);
-    signIn(provider, { callbackUrl });
+    await signOut({ redirect: false });
+    await signIn(provider, { callbackUrl });
   };
 
   return (
