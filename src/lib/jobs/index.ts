@@ -148,6 +148,19 @@ export async function sendDueReminders(): Promise<number> {
     // Await each send so the serverless function doesn't freeze mid-flight
     // after the cron response returns. processEmailEvent never throws.
     await processEmailEvent(event.id);
+
+    // Durable audit event (Stage 5): successful reminder sends appear in the
+    // booking activity timeline. Only recorded after a successful send.
+    if (event.bookingId) {
+      const { recordBookingEvent } = await import('@/lib/booking/audit');
+      await recordBookingEvent({
+        bookingId: event.bookingId,
+        eventType: 'reminder_sent',
+        actorType: 'system',
+        metadata: { emailEventId: event.id },
+      });
+    }
+
     sent++;
   }
 

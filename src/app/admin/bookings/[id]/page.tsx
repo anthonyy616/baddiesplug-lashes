@@ -7,6 +7,8 @@ import { db, bookings, users } from '@/lib/db';
 import { eq } from 'drizzle-orm';
 import Link from 'next/link';
 import BookingActionsClient from './BookingActionsClient';
+import BookingActivityTimeline from '@/components/booking/BookingActivityTimeline';
+import { getAdminBookingTimeline } from '@/lib/booking/timeline';
 
 
 interface PageProps {
@@ -53,6 +55,9 @@ export default async function AdminBookingDetailPage({ params }: PageProps) {
 
   // Get reference images
   const referenceImages = booking.referenceImages || [];
+
+  // Full operational activity timeline (Stage 5)
+  const timeline = await getAdminBookingTimeline(id);
 
   return (
     <div className="space-y-6">
@@ -306,6 +311,14 @@ export default async function AdminBookingDetailPage({ params }: PageProps) {
                 View Customer
               </Link>
             </div>
+          </div>
+        </div>
+
+        {/* Activity timeline (Stage 5) */}
+        <div className="lg:col-span-1">
+          <div className="bg-white rounded-lg shadow p-6">
+            <h2 className="font-semibold text-gray-900 mb-4">Activity</h2>
+            <BookingActivityTimeline entries={timeline} variant="admin" />
           </div>
         </div>
       </div>

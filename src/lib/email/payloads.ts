@@ -44,7 +44,11 @@ export const emailPayloadSchemas = {
     notes: z.string().optional(),
   }),
   'booking.customer_cancelled': appointmentBase,
-  'booking.admin_cancelled': appointmentBase,
+  'booking.admin_cancelled': appointmentBase.extend({
+    // Stage 5: the admin-entered, customer-safe cancellation reason. The
+    // audit record is the source of truth; the email echoes it verbatim.
+    reason: z.string().max(1000).optional(),
+  }),
   'booking.rescheduled': appointmentBase.extend({
     previousReference: z.string().min(1),
     services: strList.default([]),

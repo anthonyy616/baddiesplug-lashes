@@ -67,6 +67,10 @@ export function generateBookingRequestEmail(input: BookingEmailBase & {
 
 export function generateCancellationEmail(input: BookingEmailBase & {
   cancelledBy: 'customer' | 'admin';
+  // Stage 5: admin-entered, customer-safe cancellation reason. Rendered
+  // VERBATIM — never AI-rewritten and never replaced with generic wording
+  // when a specific reason was provided.
+  reason?: string;
 }): string {
   const header = input.cancelledBy === 'customer'
     ? 'Booking Cancelled'
@@ -76,7 +80,11 @@ export function generateCancellationEmail(input: BookingEmailBase & {
     ? 'Please contact us via WhatsApp to discuss refund options.'
     : 'If you have any questions, please contact us on WhatsApp.';
 
-  return baseEmail(header, input, `<p>${message}</p>`);
+  const reasonNote = input.cancelledBy === 'admin' && input.reason
+    ? `<p><strong>Reason:</strong> ${escapeHtml(input.reason)}</p>`
+    : '';
+
+  return baseEmail(header, input, `${reasonNote}<p>${message}</p>`);
 }
 
 export function generateAppointmentReminderEmail(input: BookingEmailBase & {

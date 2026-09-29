@@ -13,6 +13,9 @@ export default function BookingActionsClient({ bookingId, status }: BookingActio
   const [rescheduleDate, setRescheduleDate] = useState('');
   const [rescheduleStart, setRescheduleStart] = useState('');
   const [rescheduleEnd, setRescheduleEnd] = useState('');
+  // Stage 5: optional customer-safe cancellation reason.
+  const [showCancelReason, setShowCancelReason] = useState(false);
+  const [cancelReason, setCancelReason] = useState('');
 
   const handleAction = async (action: string, body: Record<string, string> = {}) => {
     setIsLoading(action);
@@ -48,6 +51,11 @@ export default function BookingActionsClient({ bookingId, status }: BookingActio
     status === 'pending' || status === 'confirmed' || status === 'approved';
 
   if (!showActions) return null;
+
+  /** Stage 5: first click reveals the reason panel; confirm inside it. */
+  const handleCancelClick = () => {
+    setShowCancelReason((v) => !v);
+  };
 
   return (
     <div className="space-y-3">
@@ -96,7 +104,7 @@ export default function BookingActionsClient({ bookingId, status }: BookingActio
             {isLoading === 'no_show' ? '...' : 'Mark as No Show'}
           </button>
           <button
-            onClick={() => handleAction('cancel')}
+            onClick={handleCancelClick}
             disabled={isLoading !== null}
             className="w-full px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
           >
@@ -123,13 +131,51 @@ export default function BookingActionsClient({ bookingId, status }: BookingActio
             {isLoading === 'no_show' ? '...' : 'Mark as No Show'}
           </button>
           <button
-            onClick={() => handleAction('cancel')}
+            onClick={handleCancelClick}
             disabled={isLoading !== null}
             className="w-full px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
           >
             {isLoading === 'cancel' ? '...' : 'Cancel Booking'}
           </button>
         </>
+      )}
+
+      {showCancelReason && (
+        <div className="p-4 bg-red-50 rounded-lg space-y-2">
+          <label
+            htmlFor="cancel-reason"
+            className="block text-xs text-gray-700"
+          >
+            Reason shown to the customer (optional)
+          </label>
+          <textarea
+            id="cancel-reason"
+            value={cancelReason}
+            onChange={(e) => setCancelReason(e.target.value)}
+            maxLength={1000}
+            rows={2}
+            placeholder="e.g. Stylist unavailable at this time"
+            className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-burgundy"
+          />
+          <div className="flex gap-2">
+            <button
+              onClick={() => handleAction('cancel', cancelReason.trim() ? { reason: cancelReason.trim() } : {})}
+              disabled={isLoading !== null}
+              className="px-4 py-2 bg-red-600 text-white text-sm rounded-md hover:bg-red-700 disabled:opacity-50"
+            >
+              {isLoading === 'cancel' ? '...' : 'Confirm Cancel'}
+            </button>
+            <button
+              onClick={() => {
+                setShowCancelReason(false);
+                setCancelReason('');
+              }}
+              className="px-4 py-2 bg-gray-200 text-gray-700 text-sm rounded-md hover:bg-gray-300"
+            >
+              Keep Booking
+            </button>
+          </div>
+        </div>
       )}
 
       {(status === 'confirmed' || status === 'approved') && (

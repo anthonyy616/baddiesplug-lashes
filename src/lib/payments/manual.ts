@@ -3,6 +3,7 @@ import { payments, bookings } from '@/lib/db/schema';
 import { eq, and, sum, sql } from 'drizzle-orm';
 import { v4 as uuidv4 } from 'uuid';
 import type { PaymentProvider, PaymentRecord, PaymentStatusResult, PaymentType, PaymentStatus } from './types';
+import { recordBookingEvent } from '@/lib/booking/audit';
 
 /**
  * Manual payment provider.
@@ -41,6 +42,24 @@ export class ManualPaymentProvider implements PaymentProvider {
       note: record.note,
       recordedByAdminId: record.recordedBy ? undefined : null, // admin ID if provided
       createdAt: record.createdAt,
+    });
+
+    // Durable audit event (Stage 5): payment recording appears in the booking
+    // activity timeline. Amount is stored in kobo; the timeline formats it.
+    const bookingRow = await db.query.bookings.findFirst({
+      where: eq(bookings.id, bookingId),
+      columns: { reference: true },
+    });
+    await recordBookingEvent({
+      bookingId,
+      eventType: 'payment_recorded',
+      actorType: 'admin',
+      metadata: {
+        reference: bookingRow?.reference ?? null,
+        amount,
+        paymentType: type,
+        ...(note ? { note } : {}),
+      },
     });
 
     return record;

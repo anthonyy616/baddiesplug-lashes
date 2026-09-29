@@ -45,6 +45,29 @@ const actionSchema = z.object({
   { message: 'Reschedule requires newDate, newStartTime, and newEndTime' }
 );
 
+/** Cancellation reasons (Stage 5): the audit record — not the email — is the
+ * source of truth. Reasons are persisted verbatim in booking_event metadata
+ * and in the structured analytics field, then echoed into the durable email. */
+export interface CancellationAnalyticsRecord {
+  bookingId: string;
+  reference: string;
+  reason: string | null;
+  cancelledBy: 'admin';
+  cancelledAt: string;
+}
+
+export function buildCancellationAnalyticsRecord(
+  input: CancellationAnalyticsRecord
+): Record<string, string> {
+  return {
+    analytics_cancellation_reason: input.reason ?? 'unspecified',
+    analytics_cancelled_by: input.cancelledBy,
+    analytics_reference: input.reference,
+    analytics_booking_id: input.bookingId,
+    analytics_cancelled_at: input.cancelledAt,
+  };
+}
+
 // Target status for NORMAL status actions. Reschedule is not listed: it is
 // handled entirely by the dedicated reschedule command below.
 const TARGET_STATUS: Partial<Record<AdminBookingAction, BookingStatus>> = {
@@ -75,6 +98,9 @@ export async function PATCH(
     }
 
     const { action } = parsed.data;
+    // Cancellation reason (Stage 5) — only meaningful for the cancel action.
+    const cancellationReason =
+      action === 'cancel' ? parsed.data.reason?.trim() || null : null;
 
     // Reschedule is a separate command with its own flow — never run it
     // through the normal status-update path.
@@ -161,7 +187,22 @@ export async function PATCH(
           bookingId: id,
           eventType: auditEventType,
           actorType: 'admin',
-          metadata: { reference: booking.reference },
+          metadata: {
+            reference: booking.reference,
+            // Stage 5: persist the admin-entered cancellation reason verbatim
+            // in the durable audit record (the source of truth), alongside
+            // structured fields so Analytics V2 can consume them later.
+            ...(cancellationReason ? { reason: cancellationReason } : {}),
+            ...(targetStatus === 'cancelled'
+              ? buildCancellationAnalyticsRecord({
+                  bookingId: id,
+                  reference: booking.reference,
+                  reason: cancellationReason,
+                  cancelledBy: 'admin',
+                  cancelledAt: now.toISOString(),
+                })
+              : {}),
+          },
         },
         tx,
       );
@@ -185,7 +226,9 @@ export async function PATCH(
           bookingId: id,
           customerId: booking.customerId,
           title: 'Booking Cancelled',
-          message: `Your booking ${booking.reference} has been cancelled by admin`,
+          message: cancellationReason
+            ? `Your booking ${booking.reference} has been cancelled by admin. Reason: ${cancellationReason}`
+            : `Your booking ${booking.reference} has been cancelled by admin`,
           isRead: false,
           createdAt: now,
         });
@@ -217,15 +260,19 @@ export async function PATCH(
               reference: booking.reference,
               date: booking.appointmentDate,
               startTime: booking.startTime,
-              endTime: booking.endTime,
-              services: snapshotServices.map((s) => s.serviceNameSnapshot),
+              endTime: booking.endTime,              services: snapshotServices.map((s) => s.serviceNameSnapshot),
               addons: snapshotAddons.map((a) => a.addonNameSnapshot),
               total: booking.total,
               depositRequired: booking.depositRequired,
+              // Stage 5: the customer sees the admin-entered reason VERBATIM —
+              // never AI-generated wording or a generic substitute.
+              ...(action === 'cancel' && cancellationReason
+                ? { reason: cancellationReason }
+                : {}),
             },
           },
-          tx,
-        );
+        tx,
+      );
       }
     });
 

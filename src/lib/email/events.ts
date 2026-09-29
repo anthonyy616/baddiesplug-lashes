@@ -320,6 +320,8 @@ function renderEmailHtml(eventType: EmailEventType, payload: Record<string, unkn
         startTime: str('startTime'),
         endTime: str('endTime'),
         cancelledBy: eventType === 'booking.admin_cancelled' ? 'admin' : 'customer',
+        // Stage 5: pass the admin-entered reason through verbatim.
+        reason: eventType === 'booking.admin_cancelled' && payload.reason ? str('reason') : undefined,
       });
     case 'booking.rescheduled':
       return generateBookingRescheduledEmail({

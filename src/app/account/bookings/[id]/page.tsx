@@ -7,6 +7,8 @@ import Link from 'next/link';
 import CancelBookingButton from './CancelBookingButton';
 import BookAgainButton from './BookAgainButton';
 import ReschedulePolicy from '@/components/booking/ReschedulePolicy';
+import BookingActivityTimeline from '@/components/booking/BookingActivityTimeline';
+import { getCustomerBookingTimeline } from '@/lib/booking/timeline';
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -46,6 +48,10 @@ export default async function BookingDetailPage({ params }: PageProps) {
       return getServiceWithImages(service.serviceId);
     })
   );
+
+  // Customer-safe activity timeline (Stage 5): only customer-appropriate
+  // events, never internal notes or admin-only details.
+  const timeline = await getCustomerBookingTimeline(id, user.id);
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-black">
@@ -198,6 +204,12 @@ export default async function BookingDetailPage({ params }: PageProps) {
             <div className="bg-white dark:bg-gray-900 rounded-lg shadow p-6">
               <h2 className="font-semibold text-gray-900 dark:text-white mb-4">Book Again</h2>
               <BookAgainButton bookingId={booking.id} />
+            </div>
+
+            {/* Activity timeline (Stage 5) — customer-safe projection */}
+            <div className="bg-white dark:bg-gray-900 rounded-lg shadow p-6">
+              <h2 className="font-semibold text-gray-900 dark:text-white mb-4">Activity</h2>
+              <BookingActivityTimeline entries={timeline} variant="customer" />
             </div>
           </div>
         </div>

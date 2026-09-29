@@ -77,7 +77,23 @@ export type BookingEventType =
   | 'rejected'
   | 'completed'
   | 'no_show'
+  | 'payment_recorded'
+  | 'reminder_sent'
   | 'status_changed';
+
+/** Customer-safe booking-event types for the customer activity timeline.
+ * Everything else (and internal metadata) is admin-only. Keep this list in
+ * sync with src/lib/booking/timeline.ts CUSTOMER_EVENT_TYPES. */
+export const CUSTOMER_BOOKING_EVENT_TYPES = [
+  'created',
+  'rescheduled',
+  'cancelled',
+  'approved',
+  'completed',
+  'payment_recorded',
+] as const;
+
+export type CustomerBookingEventType = (typeof CUSTOMER_BOOKING_EVENT_TYPES)[number];
 
 export type ReferenceImageFormat = 'image/jpeg' | 'image/png' | 'image/webp' | 'image/heic';
 
