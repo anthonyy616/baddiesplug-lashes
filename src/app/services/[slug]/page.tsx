@@ -3,7 +3,12 @@ import { notFound } from 'next/navigation';
 import { getServiceBySlugWithImages } from '@/lib/pricing';
 import ServiceGallery from './ServiceGallery';
 import BookNowButton from '@/components/BookNowButton';
+import FavouriteToggleButton from '@/components/account/FavouriteToggleButton';
 import SiteNav from '@/components/SiteNav';
+import { db } from '@/lib/db';
+import { favouriteServices } from '@/lib/db/schema';
+import { and, eq } from 'drizzle-orm';
+import { auth } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
 
@@ -16,6 +21,23 @@ export default async function ServiceDetailPage({ params }: PageProps) {
 
   if (!service || !service.isActive) {
     notFound();
+  }
+
+  // Session-scoped favourite state for the toggle (false when signed out).
+  let isFavourited = false;
+  try {
+    const session = await auth();
+    if (session?.user?.id) {
+      const fav = await db.query.favouriteServices.findFirst({
+        where: and(
+          eq(favouriteServices.customerId, session.user.id),
+          eq(favouriteServices.serviceId, service.id),
+        ),
+      });
+      isFavourited = Boolean(fav);
+    }
+  } catch {
+    isFavourited = false;
   }
 
   const formatPrice = (kobo: number) =>
@@ -48,9 +70,12 @@ export default async function ServiceDetailPage({ params }: PageProps) {
             <h1 className="text-4xl font-bold text-gray-900 dark:text-white mt-2">
               {service.name}
             </h1>
-            <p className="text-3xl font-bold text-burgundy mt-4">
-              {formatPrice(service.price)}
-            </p>
+            <div className="mt-4 flex items-center gap-4">
+              <p className="text-3xl font-bold text-burgundy">
+                {formatPrice(service.price)}
+              </p>
+              <FavouriteToggleButton serviceId={service.id} initialFavourited={isFavourited} />
+            </div>
             <p className="text-gray-600 dark:text-gray-400 mt-6 leading-relaxed">
               {service.description}
             </p>

@@ -186,6 +186,20 @@ export const galleryCategoryOrder = pgTable('gallery_category_order', {
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 });
 
+/**
+ * Favourite services per authenticated customer (migration 0014).
+ * Unique (customer_id, service_id) — one favourite per service per customer.
+ */
+export const favouriteServices = pgTable('favourite_services', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  customerId: uuid('customer_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  serviceId: uuid('service_id').notNull().references(() => services.id, { onDelete: 'cascade' }),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+}, (table) => [
+  uniqueIndex('favourite_services_customer_service_unique').on(table.customerId, table.serviceId),
+  index('favourite_services_customer_id_idx').on(table.customerId),
+]);
+
 // Addons table
 export const addons = pgTable('addons', {
   id: uuid('id').primaryKey().defaultRandom(),

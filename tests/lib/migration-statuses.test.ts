@@ -82,9 +82,12 @@ describe('migration journal', () => {
     expect(tags.indexOf('0011_email_events_updated_at')).toBeGreaterThan(
       tags.indexOf('0010_audit_events_booking_idempotency')
     );
-    // 0012 remains the gallery assignment migration; 0013 (booking source) is
-    // appended after it and covered by stage2-admin-create.test.ts.
-    expect(tags.indexOf('0012_gallery_service_assignment')).toBe(tags.length - 2);
+    // 0012 remains the gallery assignment migration; later feature migrations
+    // (0013 booking source, 0014 favourites, ...) are appended after it and
+    // covered by their stage test files.
+    expect(tags.indexOf('0012_gallery_service_assignment')).toBeGreaterThan(
+      tags.indexOf('0011_email_events_updated_at')
+    );
   });
 
   it('has unique, sequential idx values', () => {

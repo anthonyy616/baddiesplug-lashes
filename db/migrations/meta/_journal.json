@@ -99,6 +99,13 @@
       "when": 1790800300000,
       "tag": "0013_booking_source_admin_notes",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1790800400000,
+      "tag": "0014_favourite_services",
+      "breakpoints": true
     }
   ]
 }

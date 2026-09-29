@@ -99,6 +99,50 @@ export default function BookingFlow({ paymentDetails }: { paymentDetails: Paymen
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // BOOK AGAIN (Stage 3): when arriving with ?bookAgain=<bookingId>, ask the
+  // server for pre-fill data from that past booking. Only ids of services and
+  // add-ons that still exist AND are active come back — never prices (the
+  // server recalculates from the current catalogue) and never a slot (the
+  // customer must pick a new date/time and pass normal availability checks).
+  useEffect(() => {
+    if (services.length === 0) return;
+    const bookAgainId = searchParams.get('bookAgain');
+    if (!bookAgainId) return;
+    if (selectedServices.length > 0 || selectedAddons.length > 0) return;
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`/api/account/bookings/${bookAgainId}/book-again`);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (cancelled) return;
+
+        const pickedServices = services.filter((s) => data.serviceIds?.includes(s.id));
+        const pickedAddons = addons.filter((a) => data.addonIds?.includes(a.id));
+        if (pickedServices.length > 0) setSelectedServices(pickedServices);
+        if (pickedAddons.length > 0) setSelectedAddons(pickedAddons);
+
+        const missing = [
+          ...(data.unavailableServiceNames || []),
+          ...(data.unavailableAddonNames || []),
+        ];
+        if (missing.length > 0) {
+          setError(
+            `Some items from your previous booking are no longer available and were not added: ${missing.join(', ')}.`
+          );
+        }
+      } catch {
+        // Non-fatal: the customer just picks services manually.
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [services, addons]);
+
   // Restore booking intent (survives the sign-in round trip and page refreshes).
   // Only restores when the flow is in its initial empty state — once the user
   // has made any selection (or explicitly cleared), the cached intent is not

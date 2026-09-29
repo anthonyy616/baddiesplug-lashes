@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation';
 import { formatLagosTime, getCancellationDeadline } from '@/lib/timezone';
 import Link from 'next/link';
 import CancelBookingButton from './CancelBookingButton';
+import BookAgainButton from './BookAgainButton';
 import ReschedulePolicy from '@/components/booking/ReschedulePolicy';
 
 interface PageProps {
@@ -192,6 +193,12 @@ export default async function BookingDetailPage({ params }: PageProps) {
             {(booking.status === 'pending' || booking.status === 'confirmed' || booking.status === 'approved') && (
               <ReschedulePolicy compact />
             )}
+
+            {/* BOOK AGAIN (Stage 3) — pre-fills services; new slot + current prices */}
+            <div className="bg-white dark:bg-gray-900 rounded-lg shadow p-6">
+              <h2 className="font-semibold text-gray-900 dark:text-white mb-4">Book Again</h2>
+              <BookAgainButton bookingId={booking.id} />
+            </div>
           </div>
         </div>
       </div>

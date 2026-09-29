@@ -35,7 +35,9 @@ describe('booking source concept (Stage 2)', () => {
     const journal = JSON.parse(read('db/migrations/meta/_journal.json'));
     const tags = journal.entries.map((e: { tag: string }) => e.tag);
     expect(tags).toContain('0013_booking_source_admin_notes');
-    expect(tags.indexOf('0013_booking_source_admin_notes')).toBe(tags.length - 1);
+    expect(tags.indexOf('0013_booking_source_admin_notes')).toBeGreaterThan(
+      tags.indexOf('0012_gallery_service_assignment')
+    );
     const idxs = journal.entries.map((e: { idx: number }) => e.idx);
     expect(new Set(idxs).size).toBe(idxs.length);
   });
