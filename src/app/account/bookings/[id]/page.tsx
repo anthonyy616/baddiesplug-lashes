@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation';
 import { formatLagosTime, getCancellationDeadline } from '@/lib/timezone';
 import Link from 'next/link';
 import CancelBookingButton from './CancelBookingButton';
+import ReschedulePolicy from '@/components/booking/ReschedulePolicy';
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -185,6 +186,11 @@ export default async function BookingDetailPage({ params }: PageProps) {
                 <h2 className="font-semibold text-gray-900 dark:text-white mb-4">Actions</h2>
                 <CancelBookingButton bookingId={booking.id} />
               </div>
+            )}
+
+            {/* Rescheduling is admin-controlled — no customer self-reschedule */}
+            {(booking.status === 'pending' || booking.status === 'confirmed' || booking.status === 'approved') && (
+              <ReschedulePolicy compact />
             )}
           </div>
         </div>

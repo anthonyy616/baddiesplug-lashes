@@ -65,7 +65,7 @@ export default function WorkGallery({ images }: { images: GalleryImage[] }) {
                 alt={image.alt}
                 label={image.serviceName ?? image.caption ?? SERVICE_HINTS[i % SERVICE_HINTS.length] ?? 'Lash Work'}
                 priority={false}
-                href="/gallery-view"
+                href="/gallery-view/"
               />
             </Reveal>
           ))}
@@ -82,7 +82,7 @@ export default function WorkGallery({ images }: { images: GalleryImage[] }) {
               label={image.serviceName ?? image.caption ?? SERVICE_HINTS[i % SERVICE_HINTS.length] ?? 'Lash Work'}
               showLabelAlways
               priority={false}
-              href="/gallery-view"
+              href="/gallery-view/"
               className="aspect-4/3"
             />
           ))}

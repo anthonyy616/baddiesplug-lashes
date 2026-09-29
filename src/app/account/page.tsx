@@ -10,6 +10,7 @@ import { notifications } from '@/lib/db/schema';
 import { eq, and, sql } from 'drizzle-orm';
 import CustomerNotifications from '@/components/account/CustomerNotifications';
 import ProfileSettings from '@/components/account/ProfileSettings';
+import ReschedulePolicy from '@/components/booking/ReschedulePolicy';
 
 export const dynamic = 'force-dynamic';
 
@@ -83,6 +84,9 @@ export default async function AccountPage() {
         </div>
 
         <ProfileSettings name={user.name} email={user.email} phone={user.phone} />
+
+        {/* Rescheduling is admin-controlled — customers request changes by contact */}
+        <ReschedulePolicy compact />
 
         <CustomerNotifications />
 

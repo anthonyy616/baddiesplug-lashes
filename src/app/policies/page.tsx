@@ -8,6 +8,16 @@ export const metadata = {
 
 const policies = [
   {
+    id: 'rescheduling',
+    title: 'Rescheduling Policy',
+    body: [
+      'Appointments may be rescheduled by contacting us on WhatsApp with your booking reference and your preferred new date and time.',
+      'You cannot change the date or time of your appointment yourself — rescheduling is performed by our team on your behalf.',
+      'Once the appointment has been moved, you will receive a confirmation email showing your previous and new appointment details.',
+      'Rescheduled appointments keep their original deposit and pricing. If the new time no longer suits you, contact us to discuss cancellation and refund options.',
+    ],
+  },
+  {
     id: 'cancellation',
     title: 'Cancellation Policy',
     body: [
@@ -54,9 +64,12 @@ export default function PoliciesPage() {
     <div className="min-h-screen bg-white dark:bg-black">
       <SiteNav />
       <main className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
-        <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-4">Policies</h1>
-        <p className="text-gray-600 dark:text-gray-400 mb-10">
-          The fine print, in plain language.
+        <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-4">Policies</h1>          <p className="text-gray-600 dark:text-gray-400 mb-10">
+          The fine print, in plain language. Need to move an appointment? See the{' '}
+          <a href="#rescheduling" className="text-burgundy hover:text-burgundy/80 underline">
+            rescheduling policy
+          </a>
+          .
         </p>
 
         <div className="space-y-8">

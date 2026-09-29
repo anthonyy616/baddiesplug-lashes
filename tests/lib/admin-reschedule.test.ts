@@ -166,18 +166,23 @@ describe('audit event recorder', () => {
 });
 
 describe('customer reschedule availability cache', () => {
-  it('invalidates both the released and replacement dates after commit', () => {
+  // Stage 1 policy: customers cannot reschedule their own appointments.
+  // The former customer-side rescheduleBooking() mutation was removed; the
+  // admin reschedule command owns both cache invalidations (old + new date).
+  it('no customer-side reschedule mutation exists (Stage 1 policy)', () => {
     const src = read('src/lib/booking/index.ts');
-    const fnStart = src.indexOf('export async function rescheduleBooking');
-    const fnBody = src.slice(fnStart, src.indexOf('// Re-export for API layer convenience', fnStart));
-    const transactionStart = fnBody.indexOf('await db.transaction');
-    const responseStart = fnBody.indexOf('const whatsappUrl');
-    const oldDateInvalidation = fnBody.indexOf('invalidateAvailabilityCache(originalBooking.appointmentDate)');
+    expect(src).not.toContain('export async function rescheduleBooking');
+  });
+
+  it('the admin reschedule command invalidates both the released and replacement dates', () => {
+    const src = read('src/app/api/admin/bookings/[id]/route.ts');
+    const fnStart = src.indexOf('async function handleReschedule');
+    const fnBody = src.slice(fnStart, src.indexOf('export async function GET'));
+    const transactionEnd = fnBody.indexOf('// Dispatch after commit');
+    const oldDateInvalidation = fnBody.indexOf('invalidateAvailabilityCache(booking.appointmentDate)');
     const newDateInvalidation = fnBody.indexOf('invalidateAvailabilityCache(newDate)');
 
-    expect(oldDateInvalidation).toBeGreaterThan(transactionStart);
-    expect(newDateInvalidation).toBeGreaterThan(transactionStart);
-    expect(oldDateInvalidation).toBeLessThan(responseStart);
-    expect(newDateInvalidation).toBeLessThan(responseStart);
+    expect(oldDateInvalidation).toBeGreaterThan(transactionEnd);
+    expect(newDateInvalidation).toBeGreaterThan(transactionEnd);
   });
 });
