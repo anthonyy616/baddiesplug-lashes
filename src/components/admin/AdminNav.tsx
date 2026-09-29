@@ -45,6 +45,7 @@ const NAV_SECTIONS: { title?: string; items: NavItem[] }[] = [
     title: 'Content',
     items: [
       { href: '/admin/homepage', label: 'Homepage Media', icon: <IconImage /> },
+      { href: '/admin/before-after', label: 'Before & After', icon: <IconImage /> },
     ],
   },
   {

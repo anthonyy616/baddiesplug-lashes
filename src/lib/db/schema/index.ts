@@ -179,6 +179,40 @@ export const galleryImages = pgTable('gallery_images', {
   index('gallery_images_display_order_idx').on(table.displayOrder),
 ]);
 
+/**
+ * Before/after client results (Stage 6). Admin-managed image PAIRS with
+ * explicit consent/publication control: an entry is never public just because
+ * it was uploaded — `isPublic` starts false and flips only via an explicit
+ * publication action with client consent recorded.
+ */
+export const beforeAfterGallery = pgTable('before_after_gallery', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  beforeStorageKey: varchar('before_storage_key', { length: 500 }).notNull(),
+  beforePublicUrl: varchar('before_public_url', { length: 500 }).notNull(),
+  beforeWidth: integer('before_width'),
+  beforeHeight: integer('before_height'),
+  afterStorageKey: varchar('after_storage_key', { length: 500 }).notNull(),
+  afterPublicUrl: varchar('after_public_url', { length: 500 }).notNull(),
+  afterWidth: integer('after_width'),
+  afterHeight: integer('after_height'),
+  serviceId: uuid('service_id').references(() => services.id, { onDelete: 'set null' }),
+  // Optional association with a completed booking (traceability only; private
+  // booking reference images are never gallery media).
+  bookingId: uuid('booking_id').references(() => bookings.id, { onDelete: 'set null' }),
+  caption: varchar('caption', { length: 120 }),
+  altText: varchar('alt_text', { length: 255 }),
+  isPublic: boolean('is_public').notNull().default(false),
+  clientConsent: boolean('client_consent').notNull().default(false),
+  displayOrder: integer('display_order').notNull().default(0),
+  uploadedBy: varchar('uploaded_by', { length: 255 }),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+}, (table) => [
+  index('before_after_gallery_public_idx').on(table.isPublic, table.displayOrder),
+  index('before_after_gallery_service_id_idx').on(table.serviceId),
+  index('before_after_gallery_booking_id_idx').on(table.bookingId),
+]);
+
 /** Admin-controlled ordering for the category sections on the public gallery. */
 export const galleryCategoryOrder = pgTable('gallery_category_order', {
   category: varchar('category', { length: 50 }).primaryKey(),
@@ -438,6 +472,17 @@ export const galleryImagesRelations = relations(galleryImages, ({ one }) => ({
   service: one(services, {
     fields: [galleryImages.serviceId],
     references: [services.id],
+  }),
+}));
+
+export const beforeAfterGalleryRelations = relations(beforeAfterGallery, ({ one }) => ({
+  service: one(services, {
+    fields: [beforeAfterGallery.serviceId],
+    references: [services.id],
+  }),
+  booking: one(bookings, {
+    fields: [beforeAfterGallery.bookingId],
+    references: [bookings.id],
   }),
 }));
 

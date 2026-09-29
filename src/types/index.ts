@@ -95,6 +95,25 @@ export const CUSTOMER_BOOKING_EVENT_TYPES = [
 
 export type CustomerBookingEventType = (typeof CUSTOMER_BOOKING_EVENT_TYPES)[number];
 
+/** Before/after client gallery entry (Stage 6). */
+export interface BeforeAfterEntry {
+  id: string;
+  beforePublicUrl: string;
+  afterPublicUrl: string;
+  beforeWidth: number | null;
+  beforeHeight: number | null;
+  afterWidth: number | null;
+  afterHeight: number | null;
+  serviceId: string | null;
+  bookingId: string | null;
+  caption: string | null;
+  altText: string | null;
+  isPublic: boolean;
+  clientConsent: boolean;
+  displayOrder: number;
+  createdAt: string;
+}
+
 export type ReferenceImageFormat = 'image/jpeg' | 'image/png' | 'image/webp' | 'image/heic';
 
 export interface User {

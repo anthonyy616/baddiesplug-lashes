@@ -193,6 +193,16 @@ export function generateGalleryImageKey(imageId: string): string {
 }
 
 /**
+ * Before/after gallery key generator (Stage 6). Same `gallery/` prefix and
+ * WebP strategy as the existing work gallery; the pair is linked at the row
+ * level, not by path convention. Private booking reference images live under
+ * the separate `reference/` prefix and never become gallery media.
+ */
+export function generateBeforeAfterKey(imageId: string, kind: 'before' | 'after'): string {
+  return `gallery/before-after/${imageId}-${kind}.webp`;
+}
+
+/**
  * Reference image key generator
  */
 export function generateReferenceImageKey(bookingId: string, imageId: string): string {

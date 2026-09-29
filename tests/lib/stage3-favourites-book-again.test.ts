@@ -30,7 +30,8 @@ describe('favourites ownership (Stage 3)', () => {
 
     const journal = JSON.parse(read('db/migrations/meta/_journal.json'));
     const tags = journal.entries.map((e: { tag: string }) => e.tag);
-    expect(tags[tags.length - 1]).toBe('0014_favourite_services');
+    expect(tags[tags.length - 1]).not.toBe('0014_favourite_services');
+    expect(tags).toContain('0014_favourite_services');
   });
 
   it('domain scopes every query by the session user, never request input', () => {

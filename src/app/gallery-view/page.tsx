@@ -1,12 +1,16 @@
 import Link from 'next/link';
 import GalleryViewGrid from '@/components/home/GalleryViewGrid';
 import { getGalleryViewData } from '@/components/home/home-media';
+import BeforeAfterShowcase from '@/components/gallery/BeforeAfterShowcase';
+import { getPublicBeforeAfterEntries } from '@/lib/before-after';
 
 export const dynamic = 'force-dynamic';
 
 export default async function GalleryViewPage() {
   const categories = await getGalleryViewData();
   const hasImages = categories.some((category) => category.services.some((service) => service.images.length > 0));
+  // Public before/after results — ONLY published (consented) entries.
+  const beforeAfter = await getPublicBeforeAfterEntries();
 
   return (
     <main className="min-h-screen bg-ink-black text-warm-white">
@@ -22,8 +26,22 @@ export default async function GalleryViewPage() {
           </p>
         </header>
 
-        {!hasImages && (
+        {!hasImages && beforeAfter.length === 0 && (
           <p className="mt-16 border-t border-warm-white/15 pt-8 text-sm text-warm-white/60">Gallery images are coming soon.</p>
+        )}
+
+        {beforeAfter.length > 0 && (
+          <section className="mt-16" aria-labelledby="before-after-heading">
+            <h2 id="before-after-heading" className="border-b border-warm-white/15 pb-4 font-editorial text-3xl uppercase sm:text-4xl">
+              Before &amp; After
+            </h2>
+            <p className="mt-4 max-w-xl text-sm leading-6 text-warm-white/70">
+              Real client results, shared with each client&apos;s consent.
+            </p>
+            <div className="mt-10">
+              <BeforeAfterShowcase entries={beforeAfter} />
+            </div>
+          </section>
         )}
 
         <div className="mt-16 space-y-20">
