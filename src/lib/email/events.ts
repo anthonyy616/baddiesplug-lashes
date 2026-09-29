@@ -335,6 +335,7 @@ function renderEmailHtml(eventType: EmailEventType, payload: Record<string, unkn
         previousStartTime: payload.previousStartTime ? str('previousStartTime') : undefined,
         previousEndTime: payload.previousEndTime ? str('previousEndTime') : undefined,
         wasApproved: typeof payload.wasApproved === 'boolean' ? payload.wasApproved : undefined,
+        reason: payload.reason ? str('reason') : undefined,
       });
     case 'appointment.reminder':
       return generateAppointmentReminderEmail({

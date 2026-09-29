@@ -98,7 +98,10 @@ describe('item 8: availability cache invalidation', () => {
   it('admin actions and reschedules invalidate both old and new dates', () => {
     const src = read('src/app/api/admin/bookings/[id]/route.ts');
     expect(src).toContain('invalidateAvailabilityCache(booking.appointmentDate)');
-    expect(src).toContain('invalidateAvailabilityCache(newDate)');
+    // Stage 4: reschedule moved to the shared domain command.
+    const reschedule = read('src/lib/booking/reschedule.ts');
+    expect(reschedule).toContain('invalidateAvailabilityCache(booking.appointmentDate)');
+    expect(reschedule).toContain('invalidateAvailabilityCache(newDate)');
   });
 
   it('availability route still clears the cache in finally', () => {

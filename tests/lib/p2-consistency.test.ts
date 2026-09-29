@@ -108,7 +108,7 @@ describe('shared money formatter', () => {
 
 describe('reschedule messaging (P2)', () => {
   it('customer notification shows old AND new appointment details', () => {
-    const src = read('src/app/api/admin/bookings/[id]/route.ts');
+    const src = read('src/lib/booking/reschedule.ts');
     expect(src).toMatch(/rescheduled from \$\{booking\.appointmentDate\} \$\{booking\.startTime\} to/);
   });
 

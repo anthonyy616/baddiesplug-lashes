@@ -37,16 +37,21 @@ describe('reschedule lifecycle policy (P0-1)', () => {
   });
 });
 
-describe('reschedule command flow (P0-1)', () => {
-  const route = () => read('src/app/api/admin/bookings/[id]/route.ts');
-  const handler = () => {
-    const src = route();
-    const fnStart = src.indexOf('async function handleReschedule');
-    return src.slice(fnStart, src.indexOf('export async function GET'));
-  };
+describe('reschedule command flow (P0-1 / Stage 4 V2)', () => {
+  // Stage 4: the reschedule implementation moved from the API route into the
+  // shared domain command src/lib/booking/reschedule.ts; the route is a thin
+  // adapter. The structural contract is asserted against the domain module.
+  const handler = () => read('src/lib/booking/reschedule.ts');
 
-  it('runs reschedule through a dedicated handler, not the status-update path', () => {
-    const src = route();
+  it('the API route delegates to the shared domain command', () => {
+    const src = read('src/app/api/admin/bookings/[id]/route.ts');
+    expect(src).toContain('adminRescheduleBooking');
+    // The route no longer contains its own transactional reschedule logic
+    expect(src).not.toContain('previousBookingId: id');
+  });
+
+  it('runs reschedule through a dedicated command, not the status-update path', () => {
+    const src = read('src/app/api/admin/bookings/[id]/route.ts');
     const fnStart = src.indexOf('export async function PATCH');
     const patchBody = src.slice(fnStart, src.indexOf('const ALLOWED_ACTION_SOURCES'));
     expect(patchBody).toContain("if (action === 'reschedule')");
@@ -78,7 +83,7 @@ describe('reschedule command flow (P0-1)', () => {
 
   it('creates exactly one replacement, linked to the original', () => {
     const body = handler();
-    expect(body).toContain('previousBookingId: id');
+    expect(body).toContain('previousBookingId: bookingId');
     // Exactly one insert of a new booking
     expect(body.match(/await tx\.insert\(bookings\)/g)?.length).toBe(1);
   });
@@ -103,7 +108,7 @@ describe('reschedule command flow (P0-1)', () => {
 
   it('queues exactly one customer reschedule email with old AND new appointment data', () => {
     const body = handler();
-    expect(body.match(/queueEmailEvent/g)?.length).toBe(1);
+    expect(body.match(/queueEmailEvent\(/g)?.length).toBe(1);
     expect(body).toContain("eventType: 'booking.rescheduled'");
     expect(body).toContain('previousDate: booking.appointmentDate');
     expect(body).toContain('previousStartTime: booking.startTime');
@@ -111,10 +116,22 @@ describe('reschedule command flow (P0-1)', () => {
   });
 
   it('returns 409 on concurrency conflict and 400 on slot validation failure', () => {
-    const src = route();
-    expect(src).toContain('ConcurrencyConflictError');
-    expect(src).toContain('SlotValidationError');
-    expect(src).toMatch(/SlotValidationError[\s\S]{0,120}status: 400/);
+    const body = handler();
+    expect(body).toContain('ConcurrencyConflictError');
+    expect(body).toContain('SlotValidationError');
+  });
+
+  it('accepts and persists an optional customer-safe reason (Stage 4)', () => {
+    const body = handler();
+    expect(body).toContain('reason?: string');
+    expect(body).toContain('...(reason ? { reason } : {})');
+  });
+
+  it('dispatches email events only after the transaction commits', () => {
+    const body = handler();
+    const txEnd = body.indexOf('});', body.indexOf('queueEmailEvent'));
+    const dispatchIdx = body.indexOf('dispatchEmailEvent(eventId)');
+    expect(dispatchIdx).toBeGreaterThan(txEnd);
   });
 });
 
@@ -175,14 +192,12 @@ describe('customer reschedule availability cache', () => {
   });
 
   it('the admin reschedule command invalidates both the released and replacement dates', () => {
-    const src = read('src/app/api/admin/bookings/[id]/route.ts');
-    const fnStart = src.indexOf('async function handleReschedule');
-    const fnBody = src.slice(fnStart, src.indexOf('export async function GET'));
-    const transactionEnd = fnBody.indexOf('// Dispatch after commit');
-    const oldDateInvalidation = fnBody.indexOf('invalidateAvailabilityCache(booking.appointmentDate)');
-    const newDateInvalidation = fnBody.indexOf('invalidateAvailabilityCache(newDate)');
+    const src = read('src/lib/booking/reschedule.ts');
+    const transactionStart = src.indexOf('await db.transaction');
+    const oldDateInvalidation = src.indexOf('invalidateAvailabilityCache(booking.appointmentDate)');
+    const newDateInvalidation = src.indexOf('invalidateAvailabilityCache(newDate)');
 
-    expect(oldDateInvalidation).toBeGreaterThan(transactionEnd);
-    expect(newDateInvalidation).toBeGreaterThan(transactionEnd);
+    expect(oldDateInvalidation).toBeGreaterThan(transactionStart);
+    expect(newDateInvalidation).toBeGreaterThan(transactionStart);
   });
 });

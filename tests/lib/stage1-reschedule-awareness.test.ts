@@ -76,7 +76,7 @@ describe('no customer-side reschedule mutation (Stage 1)', () => {
 
 describe('admin reschedule confirmation email (Stage 1)', () => {
   it('queues a durable rescheduled email with booking reference, old AND new appointment info', () => {
-    const src = read('src/app/api/admin/bookings/[id]/route.ts');
+    const src = read('src/lib/booking/reschedule.ts');
     expect(src).toContain("eventType: 'booking.rescheduled'");
     expect(src).toContain('previousDate: booking.appointmentDate');
     expect(src).toContain('previousStartTime: booking.startTime');
@@ -85,7 +85,7 @@ describe('admin reschedule confirmation email (Stage 1)', () => {
   });
 
   it('email event is queued inside the transaction via the tx handle (failure cannot corrupt the booking)', () => {
-    const src = read('src/app/api/admin/bookings/[id]/route.ts');
+    const src = read('src/lib/booking/reschedule.ts');
     const queueIdx = src.indexOf("eventType: 'booking.rescheduled'");
     const txIdx = src.indexOf('await db.transaction');
     const txEnd = src.indexOf('// Dispatch after commit');

@@ -10,9 +10,13 @@ import { queueEmailEvent, getDispatchableEventIds, dispatchEmailEvent } from '@/
 import { getBookingById } from '@/lib/booking';
 import { cancelPendingReminders } from '@/lib/jobs';
 import { recordBookingEvent } from '@/lib/booking/audit';
-import { canTransition, isReschedulable } from '@/lib/booking/lifecycle';
-import { validateAdminSlot, isSlotAvailable, invalidateAvailabilityCache } from '@/lib/availability';
-import { generateBookingReference } from '@/lib/pricing';
+import { canTransition } from '@/lib/booking/lifecycle';
+import {
+  adminRescheduleBooking,
+  ConcurrencyConflictError,
+  SlotValidationError,
+} from '@/lib/booking/reschedule';
+import { invalidateAvailabilityCache } from '@/lib/availability';
 
 // Status actions (normal transitions; canonical matrix in
 // src/lib/booking/lifecycle.ts):
@@ -30,6 +34,9 @@ const actionSchema = z.object({
   newDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   newStartTime: z.string().optional(),
   newEndTime: z.string().optional(),
+  // Customer-safe reschedule reason (Stage 4): persisted in the audit trail
+  // and included in the customer's confirmation email.
+  reason: z.string().max(1000).optional(),
 }).refine(
   (data) => {
     if (data.action !== 'reschedule') return true;
@@ -48,22 +55,9 @@ const TARGET_STATUS: Partial<Record<AdminBookingAction, BookingStatus>> = {
   no_show: 'no_show',
 };
 
-// Thrown inside the transaction when the guarded status update affects 0 rows
-// (another admin action changed the booking first). Maps to a 409 response.
-class ConcurrencyConflictError extends Error {
-  constructor() {
-    super('Booking was modified concurrently');
-    this.name = 'ConcurrencyConflictError';
-  }
-}
-
-// Thrown when the requested reschedule slot fails validation. Maps to 400.
-class SlotValidationError extends Error {
-  constructor(reason: string) {
-    super(reason);
-    this.name = 'SlotValidationError';
-  }
-}
+// ConcurrencyConflictError and SlotValidationError are imported from the
+// shared reschedule domain module (src/lib/booking/reschedule.ts) so the
+// status-update path and the reschedule command share one error contract.
 
 export async function PATCH(
   request: NextRequest,
@@ -85,11 +79,12 @@ export async function PATCH(
     // Reschedule is a separate command with its own flow — never run it
     // through the normal status-update path.
     if (action === 'reschedule') {
-      const { newDate, newStartTime, newEndTime } = parsed.data;
+      const { newDate, newStartTime, newEndTime, reason } = parsed.data;
       return await handleReschedule(request, id, {
         newDate: newDate!,
         newStartTime: newStartTime!,
         newEndTime: newEndTime!,
+        reason,
       }, admin);
     }
 
@@ -276,254 +271,52 @@ const ALLOWED_ACTION_SOURCES: Record<string, string[]> = {
 class ActionSourceError extends Error {}
 
 /**
- * RESCHEDULE COMMAND (P0-1).
+ * RESCHEDULE COMMAND (Stage 4, Rescheduling V2).
  *
- * Separate from the normal status-update path. Policy:
- * - Allowed from 'confirmed' and 'approved' (per RESCHEDULABLE_STATUSES).
- *   'pending' is NOT reschedulable — admins reject/cancel pending bookings.
- * - The new slot is validated BEFORE the original booking is touched.
- * - Atomic: original booking keeps its identity but is marked 'cancelled'
- *   with a reschedule outcome recorded in booking_event; a replacement
- *   booking is created with identical service/add-on snapshots and pricing.
- * - Approval state is preserved: a rescheduled 'approved' booking produces an
- *   'approved' replacement (payment carry-over), a 'confirmed' one produces
- *   'confirmed'.
- * - Both records are linked via previousBookingId and booking_event.
- * - Exactly one replacement booking is created (the transaction either fully
- *   commits or fully rolls back).
+ * Thin API adapter: all policy and data mutation live in the shared domain
+ * command adminRescheduleBooking() (src/lib/booking/reschedule.ts) so the
+ * admin bookings API, the calendar, and any future admin surface use ONE
+ * authoritative implementation.
+ *
+ * Policy (in the domain command):
+ * - Eligible statuses: 'confirmed' and 'approved' (RESCHEDULABLE_STATUSES).
+ * - New slot validated BEFORE the original is touched.
+ * - Fully transactional: guarded cancel + replacement insert commit or roll
+ *   back together; the unique index remains the double-booking race guard.
+ * - Snapshots and historical totals are preserved; approval state carries
+ *   over; both records stay linked for A -> B -> C traceability.
+ * - Optional customer-safe reason is persisted in booking_event and included
+ *   in the durable customer email.
  */
 async function handleReschedule(
   request: NextRequest,
   id: string,
-  data: { newDate: string; newStartTime: string; newEndTime: string },
-  admin: unknown,
+  data: { newDate: string; newStartTime: string; newEndTime: string; reason?: string },
+  admin: { id: string; name: string },
 ) {
   try {
-    const newDate = data.newDate;
-    const newStartTime = data.newStartTime!;
-    const newEndTime = data.newEndTime!;
-
-    // Time format validation up-front (admin custom times are allowed, but
-    // must be well-formed; business rules checked by the admin slot validator)
-    if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(newStartTime) || !/^([01]\d|2[0-3]):[0-5]\d$/.test(newEndTime)) {
-      return NextResponse.json({ error: 'Invalid time format' }, { status: 400 });
-    }
-    if (newStartTime >= newEndTime) {
-      return NextResponse.json({ error: 'End time must be after start time' }, { status: 400 });
-    }
-
-    const booking = await db.query.bookings.findFirst({
-      where: eq(bookings.id, id),
+    const result = await adminRescheduleBooking({
+      bookingId: id,
+      newDate: data.newDate,
+      newStartTime: data.newStartTime,
+      newEndTime: data.newEndTime,
+      reason: data.reason,
+      actorId: admin.id,
+      actorName: admin.name,
     });
 
-    if (!booking) {
-      return NextResponse.json({ error: 'Booking not found' }, { status: 404 });
+    if (result.success) {
+      return NextResponse.json({
+        success: true,
+        status: 'rescheduled',
+        previousStatus: result.previousStatus,
+        newBookingId: result.newBookingId,
+        newReference: result.newReference,
+      });
     }
 
-    if (!isReschedulable(booking.status)) {
-      return NextResponse.json(
-        { error: `Cannot reschedule a ${booking.status} booking` },
-        { status: 400 },
-      );
-    }
-
-    // Validate the new slot BEFORE mutating the original. Admin custom times
-    // are allowed (business-hours/overlap/override checks inside).
-    const slotValidation = await validateAdminSlot(newDate, newStartTime, newEndTime, id);
-    if (!slotValidation.valid) {
-      throw new SlotValidationError(slotValidation.error || 'Slot not available');
-    }
-
-    // Preserve approval/payment state: approved stays approved.
-    const replacementStatus: BookingStatus =
-      booking.status === 'approved' ? 'approved' : 'confirmed';
-
-    const newBookingId = uuidv4();
-    const newReference = generateBookingReference();
-    const now = new Date();
-
-    await db.transaction(async (tx) => {
-      // Guarded cancel of the original: only if it is still in the status we
-      // validated against. 0 rows = racing admin action won.
-      const cancelledOld = await tx
-        .update(bookings)
-        .set({ status: 'cancelled', cancelledAt: now, updatedAt: now })
-        .where(and(eq(bookings.id, id), eq(bookings.status, booking.status)))
-        .returning({ id: bookings.id });
-
-      if (cancelledOld.length === 0) {
-        throw new ConcurrencyConflictError();
-      }
-
-      // Suppress reminders queued for the original slot.
-      await cancelPendingReminders(id);
-
-      // Snapshots copied BEFORE creating the replacement
-      const oldServices = await tx.query.bookingServices.findMany({
-        where: eq(bookingServices.bookingId, id),
-      });
-      const oldAddons = await tx.query.bookingAddons.findMany({
-        where: eq(bookingAddons.bookingId, id),
-      });
-
-      // Replacement booking: same customer, same pricing snapshots, same
-      // approval state, linked to the original.
-      await tx.insert(bookings).values({
-        id: newBookingId,
-        reference: newReference,
-        customerId: booking.customerId,
-        appointmentDate: newDate,
-        startTime: newStartTime,
-        endTime: newEndTime,
-        status: replacementStatus,
-        phone: booking.phone,
-        customerNotes: booking.customerNotes,
-        subtotal: booking.subtotal,
-        depositRequired: booking.depositRequired,
-        total: booking.total,
-        previousBookingId: id,
-        createdAt: now,
-        updatedAt: now,
-      });
-
-      if (oldServices.length > 0) {
-        await tx.insert(bookingServices).values(
-          oldServices.map((s) => ({
-            id: uuidv4(),
-            bookingId: newBookingId,
-            serviceId: s.serviceId,
-            serviceNameSnapshot: s.serviceNameSnapshot,
-            unitPriceSnapshot: s.unitPriceSnapshot,
-          }))
-        );
-      }
-
-      if (oldAddons.length > 0) {
-        await tx.insert(bookingAddons).values(
-          oldAddons.map((a) => ({
-            id: uuidv4(),
-            bookingId: newBookingId,
-            addonId: a.addonId,
-            addonNameSnapshot: a.addonNameSnapshot,
-            unitPriceSnapshot: a.unitPriceSnapshot,
-            quantity: a.quantity,
-          }))
-        );
-      }
-
-      // Audit: original records the reschedule outcome + link to replacement
-      await recordBookingEvent(
-        {
-          bookingId: id,
-          eventType: 'rescheduled',
-          actorType: 'admin',
-          relatedBookingId: newBookingId,
-          metadata: {
-            reference: booking.reference,
-            newReference,
-            oldDate: booking.appointmentDate,
-            oldStartTime: booking.startTime,
-            oldEndTime: booking.endTime,
-            newDate,
-            newStartTime,
-            newEndTime,
-            wasApproved: booking.status === 'approved',
-          },
-        },
-        tx,
-      );
-      // Audit: replacement records its creation-by-reschedule + link back
-      await recordBookingEvent(
-        {
-          bookingId: newBookingId,
-          eventType: 'created',
-          actorType: 'admin',
-          relatedBookingId: id,
-          metadata: {
-            reference: newReference,
-            rescheduledFrom: booking.reference,
-            wasApproved: replacementStatus === 'approved',
-          },
-        },
-        tx,
-      );
-
-      // Admin action notification (shows in admin list)
-      await tx.insert(notifications).values({
-        id: uuidv4(),
-        type: 'booking_rescheduled',
-        bookingId: id,
-        customerId: booking.customerId,
-        title: 'Booking Rescheduled',
-        message: `Booking ${booking.reference} was rescheduled by admin to ${newReference}`,
-        isRead: false,
-        createdAt: now,
-      });
-
-      // Customer notification
-      const customer = await tx.query.users.findFirst({
-        where: eq(users.id, booking.customerId),
-      });
-
-      await tx.insert(notifications).values({
-        id: uuidv4(),
-        type: 'customer_booking_rescheduled',
-        bookingId: newBookingId,
-        customerId: booking.customerId,
-        title: 'Booking Rescheduled',
-        message: `Your booking ${booking.reference} has been rescheduled from ${booking.appointmentDate} ${booking.startTime} to ${newDate} ${newStartTime} (ref ${newReference})`,
-        isRead: false,
-        createdAt: now,
-      });
-
-      // Reschedule email: goes ONLY to the customer, contains old AND new
-      // appointment data plus approval/payment carry-over state.
-      await queueEmailEvent(
-        {
-          eventType: 'booking.rescheduled',
-          recipient: customer?.email || '',
-          bookingId: newBookingId,
-          payload: {
-            customerName: customer?.name || 'Customer',
-            reference: newReference,
-            previousReference: booking.reference,
-            date: newDate,
-            startTime: newStartTime,
-            endTime: newEndTime,
-            previousDate: booking.appointmentDate,
-            previousStartTime: booking.startTime,
-            previousEndTime: booking.endTime,
-            wasApproved: booking.status === 'approved',
-            services: oldServices.map((s) => s.serviceNameSnapshot),
-            addons: oldAddons.map((a) => a.addonNameSnapshot),
-          },
-        },
-        tx,
-      );
-
-      void admin;
-    });
-
-    // Dispatch after commit — both the old and new booking ids carry events.
-    const eventIds = [
-      ...(await getDispatchableEventIds(id)),
-      ...(await getDispatchableEventIds(newBookingId)),
-    ];
-    for (const eventId of eventIds) {
-      dispatchEmailEvent(eventId);
-    }
-
-    // Old slot released, new slot taken — both dates must re-read the DB.
-    invalidateAvailabilityCache(booking.appointmentDate);
-    invalidateAvailabilityCache(newDate);
-
-    return NextResponse.json({
-      success: true,
-      status: 'rescheduled',
-      previousStatus: booking.status,
-      newBookingId,
-      newReference,
-    });
+    const status = result.error === 'Booking not found' ? 404 : 400;
+    return NextResponse.json({ error: result.error }, { status });
   } catch (error) {
     if (error instanceof ConcurrencyConflictError) {
       return NextResponse.json(

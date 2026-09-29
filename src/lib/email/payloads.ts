@@ -55,6 +55,8 @@ export const emailPayloadSchemas = {
     previousEndTime: timeStr.optional(),
     // Carried-over approval/payment state of the original booking
     wasApproved: z.boolean().optional(),
+    // Customer-safe reschedule reason entered by the admin (Stage 4)
+    reason: z.string().max(1000).optional(),
   }),
   'appointment.reminder': appointmentBase.extend({
     services: strList.default([]),

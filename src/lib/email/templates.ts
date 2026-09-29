@@ -99,6 +99,8 @@ export function generateBookingRescheduledEmail(input: BookingEmailBase & {
   previousEndTime?: string;
   // Approval state carried over from the original booking
   wasApproved?: boolean;
+  // Customer-safe reschedule reason entered by the admin (Stage 4)
+  reason?: string;
 }): string {
   const previous = input.previousDate
     ? `<p><strong>Previous appointment:</strong> ${escapeHtml(input.previousDate)} ${escapeHtml(input.previousStartTime ?? '')} - ${escapeHtml(input.previousEndTime ?? '')} (ref ${escapeHtml(input.previousReference)})</p>`
@@ -106,10 +108,14 @@ export function generateBookingRescheduledEmail(input: BookingEmailBase & {
   const approvalNote = input.wasApproved
     ? '<p>Your booking remains <strong>approved</strong> — no further action is needed.</p>'
     : '';
+  const reasonNote = input.reason
+    ? `<p><strong>Reason:</strong> ${escapeHtml(input.reason)}</p>`
+    : '';
 
   return baseEmail('Booking Rescheduled', input, `
     <p>Your booking has been rescheduled by the admin.</p>
     ${previous}
+    ${reasonNote}
     ${approvalNote}
     ${serviceList(input.services, input.addons ?? [])}
     <p>Your new appointment details are above.</p>
