@@ -63,9 +63,9 @@ export default function WorkGallery({ images }: { images: GalleryImage[] }) {
               <GalleryTile
                 src={image.src}
                 alt={image.alt}
-                label={image.caption ?? SERVICE_HINTS[i % SERVICE_HINTS.length] ?? 'Lash Work'}
+                label={image.serviceName ?? image.caption ?? SERVICE_HINTS[i % SERVICE_HINTS.length] ?? 'Lash Work'}
                 priority={false}
-                href="/gallery-view/"
+                href="/gallery-view"
               />
             </Reveal>
           ))}
@@ -79,10 +79,10 @@ export default function WorkGallery({ images }: { images: GalleryImage[] }) {
               key={image.src}
               src={image.src}
               alt={image.alt}
-              label={image.caption ?? SERVICE_HINTS[i % SERVICE_HINTS.length] ?? 'Lash Work'}
+              label={image.serviceName ?? image.caption ?? SERVICE_HINTS[i % SERVICE_HINTS.length] ?? 'Lash Work'}
               showLabelAlways
               priority={false}
-              href="/gallery-view/"
+              href="/gallery-view"
               className="aspect-4/3"
             />
           ))}

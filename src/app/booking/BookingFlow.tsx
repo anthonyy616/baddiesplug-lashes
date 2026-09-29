@@ -16,6 +16,12 @@ import Success from './Success';
 const STEPS = ['services', 'addons', 'datetime', 'details', 'review'] as const;
 type Step = (typeof STEPS)[number];
 
+interface PaymentDetails {
+  accountNumber: string;
+  bankName: string;
+  accountName: string;
+}
+
 interface SelectedService extends SelectableService {}
 interface SelectedAddon extends SelectableAddon {}
 
@@ -29,7 +35,7 @@ interface BookingIntent {
   step: number;
 }const INTENT_KEY = 'bookingIntent';
 const SELECTED_SERVICE_KEY = 'selectedService';
-export default function BookingFlow() {
+export default function BookingFlow({ paymentDetails }: { paymentDetails: PaymentDetails }) {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -546,6 +552,7 @@ export default function BookingFlow() {
                   phone={phone}
                   notes={notes}
                   photoCount={photos.length}
+                  paymentDetails={paymentDetails}
                 />
               </section>
             )}

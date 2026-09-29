@@ -8,6 +8,7 @@ export const metadata = {
 
 export default function ContactPage() {
   const whatsappNumber = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER?.replace(/[^0-9]/g, '') || '';
+  const phoneNumber = '09060375203';
 
   return (
     <div className="min-h-screen bg-white dark:bg-black">
@@ -40,6 +41,12 @@ export default function ContactPage() {
               <li>Monday, Saturday &amp; Sunday: Closed</li>
             </ul>
           </div>
+
+          <a href={`tel:${phoneNumber}`} className="p-6 bg-white dark:bg-gray-900 rounded-xl shadow-sm hover:shadow-md transition-shadow border border-gray-200 dark:border-gray-800">
+            <h2 className="font-semibold text-gray-900 dark:text-white mb-2">Phone</h2>
+            <p className="text-sm text-gray-600 dark:text-gray-400">Call us about bookings, services, or appointment changes.</p>
+            <span className="inline-block mt-4 text-burgundy font-medium">{phoneNumber}</span>
+          </a>
         </div>
 
         <div className="mt-10 p-6 bg-burgundy/5 rounded-xl border border-burgundy/10">

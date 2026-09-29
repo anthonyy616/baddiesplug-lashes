@@ -4,6 +4,12 @@ import BookingFlow from './BookingFlow';
 import { ThemeToggle } from '@/components/ThemeProvider';
 
 export default function BookingPage() {
+  const paymentDetails = {
+    accountNumber: process.env.BOOKING_ACCOUNT_NUMBER ?? '',
+    bankName: process.env.BOOKING_BANK_NAME ?? '',
+    accountName: process.env.BOOKING_ACCOUNT_NAME ?? '',
+  };
+
   return (
     <div className="min-h-screen bg-white dark:bg-black flex flex-col">
       {/* Header */}
@@ -23,7 +29,7 @@ export default function BookingPage() {
 
       <main className="flex-1 w-full max-w-2xl mx-auto px-4 py-8">
         <Suspense fallback={<div className="text-center py-12 text-ink-secondary">Loading booking form...</div>}>
-          <BookingFlow />
+          <BookingFlow paymentDetails={paymentDetails} />
         </Suspense>
       </main>
 

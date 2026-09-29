@@ -97,6 +97,11 @@ export default function PaymentsManager({
         <div className="p-3 bg-green-50 border border-green-200 text-green-700 rounded-lg text-sm">{success}</div>
       )}
 
+      <div className="p-4 bg-blue-50 border border-blue-200 text-blue-800 rounded-lg text-sm">
+        Only approved bookings appear here because payments can be recorded after payment proof has been reviewed.
+        If you cannot find a booking, open the booking and approve its payment first.
+      </div>
+
       <form onSubmit={submit} className="bg-white rounded-lg shadow p-4 grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
         <div className="md:col-span-2">
           <label className="block text-sm font-medium text-gray-700 mb-1">Booking</label>

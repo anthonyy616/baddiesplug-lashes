@@ -24,6 +24,7 @@ export interface GalleryImage {
   src: string;
   alt: string;
   caption: string | null;
+  serviceName: string | null;
 }
 
 export interface GalleryViewImage extends GalleryImage {
@@ -84,12 +85,17 @@ export async function getEditorialImage(): Promise<HomeMedia> {
  * the static keys from site.ts keep the editorial layout intact (placeholders).
  */
 export async function getGalleryImages(limit = 6): Promise<GalleryImage[]> {
-  let rows: Awaited<ReturnType<typeof db.query.galleryImages.findMany>> = [];
+  let rows: Array<{
+    image: typeof galleryImages.$inferSelect;
+    serviceName: string | null;
+  }> = [];
 
   try {
-    rows = await db.query.galleryImages.findMany({
-      orderBy: [asc(galleryImages.displayOrder), asc(galleryImages.createdAt)],
-    });
+    rows = await db
+      .select({ image: galleryImages, serviceName: services.name })
+      .from(galleryImages)
+      .leftJoin(services, eq(galleryImages.serviceId, services.id))
+      .orderBy(asc(galleryImages.displayOrder), asc(galleryImages.createdAt));
   } catch (error) {
     // Keep the public homepage available while a deployment is waiting for
     // the optional admin-media migration to reach its database.
@@ -101,13 +107,15 @@ export async function getGalleryImages(limit = 6): Promise<GalleryImage[]> {
       src,
       alt: 'Lash work by The Baddies Plug',
       caption: null,
+      serviceName: null,
     }));
   }
 
-  const images = rows.slice(0, limit).map((row) => ({
-    src: row.publicUrl,
-    alt: row.altText ?? row.caption ?? 'Lash work by The Baddies Plug',
-    caption: row.caption,
+  const images = rows.slice(0, limit).map(({ image, serviceName }) => ({
+    src: image.publicUrl,
+    alt: image.altText ?? image.caption ?? serviceName ?? 'Lash work by The Baddies Plug',
+    caption: image.caption,
+    serviceName,
   }));
 
   // Pad with static fallback keys when the admin hasn't filled the grid yet —
@@ -115,7 +123,7 @@ export async function getGalleryImages(limit = 6): Promise<GalleryImage[]> {
   while (images.length < limit) {
     const src = HOME_IMAGES.gallery[images.length];
     if (!src) break;
-    images.push({ src, alt: 'Lash work by The Baddies Plug', caption: null });
+    images.push({ src, alt: 'Lash work by The Baddies Plug', caption: null, serviceName: null });
   }
 
   return images;
@@ -173,6 +181,7 @@ export async function getGalleryViewData(): Promise<GalleryViewCategory[]> {
         src: row.image.publicUrl,
         alt: row.image.altText ?? row.image.caption ?? 'Lash work by The Baddies Plug',
         caption: row.image.caption,
+        serviceName: null,
       });
       continue;
     }
@@ -194,6 +203,7 @@ export async function getGalleryViewData(): Promise<GalleryViewCategory[]> {
       src: row.image.publicUrl,
       alt: row.image.altText ?? row.image.caption ?? row.service.name,
       caption: row.image.caption,
+      serviceName: row.service.name,
     });
   }
 

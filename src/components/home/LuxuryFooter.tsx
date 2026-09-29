@@ -7,6 +7,7 @@ const NAV_LINKS = [
   { label: 'Policies', href: '/policies' },
   { label: 'Contact', href: '/contact' },
 ];
+const PHONE_NUMBER = '09060375203';
 
 /**
  * Footer (§34-35): deep-wine panel, warm-white type, columns for navigation /
@@ -97,6 +98,9 @@ export default function LuxuryFooter() {
               <br />
               {HOURS.closed}
             </p>
+            <a href={`tel:${PHONE_NUMBER}`} className="font-sans-ui mt-3 inline-block text-sm text-warm-white/70 transition-colors hover:text-warm-white">
+              {PHONE_NUMBER}
+            </a>
           </div>
         </div>
       </div>

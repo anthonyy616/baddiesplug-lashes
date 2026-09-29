@@ -11,9 +11,9 @@ export default async function GalleryViewPage() {
   return (
     <main className="min-h-screen bg-ink-black text-warm-white">
       <div className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8 lg:py-24">
-        <Link href="/" className="font-sans-ui text-xs uppercase tracking-[0.2em] text-warm-white/60 hover:text-warm-white">
+        <a href="/" className="font-sans-ui text-xs uppercase tracking-[0.2em] text-warm-white/60 hover:text-warm-white">
           ← Back home
-        </Link>
+        </a>
         <header className="mt-10 max-w-3xl">
           <p className="font-sans-ui text-xs uppercase tracking-[0.25em] text-warm-white/60">The proof</p>
           <h1 className="mt-3 font-editorial text-5xl uppercase leading-none sm:text-7xl">Our work</h1>

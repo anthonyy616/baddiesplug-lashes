@@ -20,6 +20,7 @@ export default async function AdminPaymentsPage() {
     })
     .from(bookings)
     .innerJoin(users, eq(users.id, bookings.customerId))
+    .where(eq(bookings.status, 'approved'))
     .orderBy(desc(bookings.appointmentDate), desc(bookings.startTime))
     .limit(500);
 

@@ -50,6 +50,12 @@ export async function POST(request: NextRequest) {
     if (!booking) {
       return NextResponse.json({ error: 'Booking not found' }, { status: 404 });
     }
+    if (booking.status !== 'approved') {
+      return NextResponse.json(
+        { error: 'Payments can only be recorded for approved bookings. Approve the booking first.' },
+        { status: 400 },
+      );
+    }
 
     const provider = getPaymentProvider();
     const created = await provider.recordPayment(

@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { formatSlotLabel } from './StickySummaryBar';
 
 export interface ReviewData {
@@ -18,6 +19,11 @@ interface ReviewStepProps {
   phone: string;
   notes: string;
   photoCount: number;
+  paymentDetails: {
+    accountNumber: string;
+    bankName: string;
+    accountName: string;
+  };
 }
 
 import { formatNaira } from '@/lib/format/money';
@@ -33,7 +39,9 @@ export default function ReviewStep({
   phone,
   notes,
   photoCount,
+  paymentDetails,
 }: ReviewStepProps) {
+  const [copied, setCopied] = useState(false);
   const formattedDate = date
     ? new Date(date + 'T00:00:00').toLocaleDateString('en-NG', {
         weekday: 'long',
@@ -95,9 +103,40 @@ export default function ReviewStep({
         )}
       </section>
 
+      <section className="mx-auto w-full max-w-md rounded-xl border border-burgundy/60 bg-burgundy/5 p-5 text-center shadow-[0_0_18px_rgba(128,30,57,0.28),inset_0_0_18px_rgba(128,30,57,0.08)] dark:border-burgundy-lifted/60 dark:bg-burgundy/10 dark:shadow-[0_0_20px_rgba(220,137,157,0.2),inset_0_0_18px_rgba(220,137,157,0.06)]">
+        <h3 className="font-medium text-ink dark:text-ink-dark">Deposit payment details</h3>
+        <dl className="mt-4 space-y-2 text-left text-sm">
+          <div className="flex justify-between gap-4">
+            <dt className="text-ink-secondary dark:text-ink-dark-secondary">Account Number</dt>
+            <dd className="font-semibold text-ink dark:text-ink-dark">{paymentDetails.accountNumber || 'Not configured'}</dd>
+          </div>
+          <div className="flex justify-between gap-4">
+            <dt className="text-ink-secondary dark:text-ink-dark-secondary">Bank Name</dt>
+            <dd className="font-semibold text-ink dark:text-ink-dark">{paymentDetails.bankName || 'Not configured'}</dd>
+          </div>
+          <div className="flex justify-between gap-4">
+            <dt className="text-ink-secondary dark:text-ink-dark-secondary">Account Name</dt>
+            <dd className="font-semibold text-ink dark:text-ink-dark">{paymentDetails.accountName || 'Not configured'}</dd>
+          </div>
+        </dl>
+        <button
+          type="button"
+          disabled={!paymentDetails.accountNumber}
+          onClick={async () => {
+            await navigator.clipboard.writeText(paymentDetails.accountNumber);
+            setCopied(true);
+            window.setTimeout(() => setCopied(false), 2000);
+          }}
+          className="mt-5 rounded-lg bg-burgundy px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-burgundy/90 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {copied ? 'Copied' : 'Copy account number'}
+        </button>
+      </section>
+
       <p className="text-xs text-ink-secondary dark:text-ink-dark-secondary">
-        Your booking is auto-approved — payment is arranged separately via WhatsApp. The required
-        deposit is due to secure your confirmed appointment.
+        Your booking is auto-approved by our system. In order to confirm your appointment, please pay
+        the required deposit and send the receipt to us on whatsapp - Our whatsapp details are in the
+        next page after you click &quot;Confirm Booking&quot; button below. Thank You!
       </p>
     </div>
   );

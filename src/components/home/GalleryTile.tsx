@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 import Image from 'next/image';
-import Link from 'next/link';
 import { ArrowUpRight } from 'lucide-react';
 
 interface GalleryTileProps {
@@ -49,7 +48,7 @@ export default function GalleryTile({
         )}
       </div>
     );
-    return href ? <Link href={href} className="block h-full">{fallback}</Link> : fallback;
+    return href ? <a href={href} className="block h-full">{fallback}</a> : fallback;
   }
 
   const tile = (
@@ -83,5 +82,5 @@ export default function GalleryTile({
     </figure>
   );
 
-  return href ? <Link href={href} className="block h-full">{tile}</Link> : tile;
+  return href ? <a href={href} className="block h-full">{tile}</a> : tile;
 }
