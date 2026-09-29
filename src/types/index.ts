@@ -14,6 +14,9 @@ export type BookingStatus =
 
 export type PaymentType = 'deposit' | 'balance' | 'other';
 
+/** Where a booking came from: the website flow or an admin-created booking. */
+export type BookingSource = 'customer' | 'admin';
+
 export type AvailabilityMode = 'available' | 'blocked';
 
 export type EmailEventType =
@@ -146,6 +149,8 @@ export interface Booking {
   previousBookingId?: string | null;
   idempotencyKey?: string | null;
   createdByAdminId?: string | null;
+  bookingSource: BookingSource;
+  adminBookingNotes?: string | null;
   createdAt: Date;
   updatedAt: Date;
   cancelledAt?: Date | null;

@@ -85,7 +85,15 @@ export default async function AdminBookingsPage({ searchParams }: PageProps) {
           <p className="text-gray-600">Manage all appointments</p>
         </div>
 
-        <div className="flex gap-4">
+        <div className="flex gap-4 items-center">
+          {/* Create Booking (Stage 2) */}
+          <Link
+            href="/admin/bookings/create"
+            className="px-4 py-2 bg-burgundy text-white rounded-lg text-sm font-medium hover:bg-burgundy/90 whitespace-nowrap"
+          >
+            + Create Booking
+          </Link>
+
           {/* Search */}
           <form action="" className="relative w-full sm:w-72">
             <input

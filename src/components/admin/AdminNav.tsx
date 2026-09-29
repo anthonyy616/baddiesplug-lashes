@@ -28,6 +28,7 @@ const NAV_SECTIONS: { title?: string; items: NavItem[] }[] = [
     title: 'Bookings',
     items: [
       { href: '/admin/bookings', label: 'All Bookings', icon: <IconClipboard /> },
+      { href: '/admin/bookings/create', label: 'Create Booking', icon: <IconPlus /> },
       { href: '/admin/bookings?status=pending', label: 'Pending Requests', icon: <IconClock /> },
       { href: '/admin/payments', label: 'Payments', icon: <IconCard /> },
     ],

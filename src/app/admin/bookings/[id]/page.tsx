@@ -91,6 +91,22 @@ export default async function AdminBookingDetailPage({ params }: PageProps) {
                 {booking.status.replace('_', ' ')}
               </span>
             </div>
+            {(booking as any).bookingSource === 'admin' && (
+              <div className="mb-4 p-3 bg-indigo-50 border border-indigo-200 rounded-lg">
+                <p className="text-sm text-indigo-800">
+                  <span className="font-medium">Admin-created booking</span> — created administratively
+                  (WhatsApp, walk-in, or phone), outside the website booking flow.
+                </p>
+              </div>
+            )}
+
+            {(booking as any).adminBookingNotes && (
+              <div className="mb-4 p-3 bg-gray-50 border border-gray-200 rounded-lg">
+                <p className="text-sm font-medium text-gray-900 mb-1">Internal admin notes</p>
+                <p className="text-sm text-gray-700 whitespace-pre-wrap">{(booking as any).adminBookingNotes}</p>
+              </div>
+            )}
+
             <p className="text-sm text-gray-600">
               {booking.status === 'confirmed'
                 ? 'Auto-approved by the system. Approve after reviewing payment proof; no-show and complete are manual outcomes.'

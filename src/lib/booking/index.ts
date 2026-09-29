@@ -25,15 +25,9 @@ export interface CreateBookingResult {
   error?: string;
 }
 
-// Error thrown on unique-index conflicts so we can map to a friendly message.
-function isUniqueViolation(error: unknown): boolean {
-  return (
-    typeof error === 'object' &&
-    error !== null &&
-    'code' in error &&
-    (error as { code?: string }).code === '23505'
-  );
-}
+// Unique-index conflict detection is shared with the admin booking modules.
+import { isUniqueViolation } from './slot-errors';
+export { isUniqueViolation };
 
 /**
  * Create a new booking.

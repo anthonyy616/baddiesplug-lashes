@@ -217,6 +217,11 @@ export const bookings = pgTable('bookings', {
   total: integer('total').notNull(), // NGN kobo
   previousBookingId: uuid('previous_booking_id'),
   createdByAdminId: uuid('created_by_admin_id'),
+  // Where the booking came from: 'customer' (website flow) or 'admin'
+  // (administratively created for phone/WhatsApp/walk-in customers).
+  bookingSource: varchar('booking_source', { length: 20 }).notNull().default('customer'),
+  // Internal admin-only notes, never shown to customers.
+  adminBookingNotes: text('admin_booking_notes'),
   // Client-generated submission key: repeated POSTs (double-click, retry after
   // timeout/5xx/connection reset) resolve to the same booking instead of
   // creating duplicates. Unique when present (migration 0010).
