@@ -7,6 +7,7 @@ import { getCurrentLagosDate, getLagosTime } from '@/lib/timezone';
 import {
   ENGAGEMENT_STATUSES,
 } from '@/lib/booking/lifecycle';
+import { getAnalyticsV2, defaultRange } from '@/lib/analytics/v2';
 import Link from 'next/link';
 
 export default async function AnalyticsPage() {
@@ -58,6 +59,11 @@ export default async function AnalyticsPage() {
 
   // Calculate repeat customers (simplified)
   const repeatCustomers = await getRepeatCustomerCount();
+
+  // Analytics V2 (Stage 7): extended metrics with explicit definitions.
+  // Extended metrics load below the existing page content — the existing
+  // analytics remain the primary view, V2 extends rather than replaces.
+  const v2 = await getAnalyticsV2(defaultRange(30));
 
   return (
     <div className="space-y-6">
@@ -156,6 +162,97 @@ export default async function AnalyticsPage() {
           ))}
         </div>
       </div>
+
+      {/* ===== Analytics V2 (Stage 7) — extended metrics ===== */}
+      <div className="bg-white rounded-lg shadow p-6">
+        <div className="flex items-center justify-between mb-1">
+          <h2 className="font-semibold text-gray-900">Extended Metrics (last 30 days)</h2>
+          <span className="text-xs text-gray-400">Analytics V2</span>
+        </div>
+        <p className="text-xs text-gray-500 mb-4">
+          Definitions: revenue = approved + completed booking totals; outcome rates use only
+          completed / cancelled / no-show appointments; engagement counts include pending,
+          confirmed, approved, completed. ignored/rejected are never counted.
+        </p>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <V2Stat label="Avg Booking Value" value={v2.revenue.averageBookingValue !== null ? `₦${v2.revenue.averageBookingValue.toFixed(2)}` : '—'} />
+          <V2Stat label="Cancellation Rate" value={v2.appointments.cancellationRatePct !== null ? `${v2.appointments.cancellationRatePct}%` : '—'} />
+          <V2Stat label="No-Show Rate" value={v2.appointments.noShowRatePct !== null ? `${v2.appointments.noShowRatePct}%` : '—'} />
+          <V2Stat label="Completion Rate" value={v2.appointments.completionRatePct !== null ? `${v2.appointments.completionRatePct}%` : '—'} />
+          <V2Stat label="Reschedule Rate" value={v2.appointments.rescheduleRatePct !== null ? `${v2.appointments.rescheduleRatePct}%` : '—'} />
+          <V2Stat label="Repeat-Customer Rate" value={v2.customers.repeatRatePct !== null ? `${v2.customers.repeatRatePct}%` : '—'} />
+          <V2Stat label="New vs Returning" value={`${v2.customers.newCount ?? 0} / ${v2.customers.returningCount ?? 0}`} />
+          <V2Stat label="Deposit Collected" value={v2.revenue.deposits !== null ? `₦${v2.revenue.deposits.toFixed(2)}` : '—'} />
+        </div>
+
+        {/* Cancellation reasons (from the Stage 5 audit trail) */}
+        <h3 className="font-medium text-gray-900 mt-6 mb-2">Cancellation Reasons</h3>
+        {v2.cancellationReasons.length === 0 ? (
+          <p className="text-sm text-gray-500">No cancellations in this period.</p>
+        ) : (
+          <div className="space-y-1">
+            {v2.cancellationReasons.map((r) => (
+              <div key={r.reason} className="flex items-center justify-between text-sm py-1 border-b border-gray-50">
+                <span className="text-gray-700 capitalize">{r.reason}</span>
+                <span className="text-gray-500">{r.count}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Booking source split */}
+        <h3 className="font-medium text-gray-900 mt-6 mb-2">Booking Source</h3>
+        <div className="flex gap-4 flex-wrap">
+          {v2.sources.length === 0 ? (
+            <p className="text-sm text-gray-500">No bookings in this period.</p>
+          ) : (
+            v2.sources.map((s) => (
+              <span key={s.source} className="px-3 py-1.5 bg-gray-50 rounded-lg text-sm">
+                {s.source === 'admin' ? 'Admin-created' : 'Customer'}: <strong>{s.count}</strong>
+              </span>
+            ))
+          )}
+        </div>
+
+        {/* Utilization + common combinations */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+          <div>
+            <h3 className="font-medium text-gray-900 mb-2">Slot Utilization (by day)</h3>
+            {v2.timing.utilizationByDay.length === 0 ? (
+              <p className="text-sm text-gray-500">No utilization data.</p>
+            ) : (
+              v2.timing.utilizationByDay.map((u) => (
+                <div key={u.day} className="flex items-center justify-between text-sm py-1">
+                  <span className="text-gray-700">{u.day}</span>
+                  <span className="text-gray-500">{(u.bookedSlots * 100).toFixed(0)}%</span>
+                </div>
+              ))
+            )}
+          </div>
+          <div>
+            <h3 className="font-medium text-gray-900 mb-2">Common Service Combinations</h3>
+            {v2.services.combinations.length === 0 ? (
+              <p className="text-sm text-gray-500">No multi-service bookings in this period.</p>
+            ) : (
+              v2.services.combinations.slice(0, 5).map((c, i) => (
+                <div key={i} className="flex items-center justify-between text-sm py-1">
+                  <span className="text-gray-700 truncate">{c.services.join(' + ')}</span>
+                  <span className="text-gray-500">{c.count}</span>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function V2Stat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="p-4 bg-gray-50 rounded-lg">
+      <p className="text-sm text-gray-600">{label}</p>
+      <p className="text-xl font-bold text-gray-900 mt-1">{value}</p>
     </div>
   );
 }
