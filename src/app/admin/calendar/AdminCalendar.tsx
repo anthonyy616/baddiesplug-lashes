@@ -36,7 +36,10 @@ function shiftDate(dateStr: string, days: number): string {
 }
 
 function prettyDate(dateStr: string): string {
-  return new Date(`${dateStr}T00:00:00`).toLocaleDateString('en-NG', {
+  // Parse at UTC midnight and format in UTC: parsing local midnight while
+  // formatting in UTC shifted every label one day back for UTC+1 (Lagos)
+  // viewers — e.g. Saturday's closed card rendered as "Fri, 2 Oct".
+  return new Date(`${dateStr}T00:00:00Z`).toLocaleDateString('en-NG', {
     weekday: 'short',
     day: 'numeric',
     month: 'short',

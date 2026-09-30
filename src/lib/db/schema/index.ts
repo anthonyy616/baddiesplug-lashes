@@ -366,7 +366,7 @@ export const availabilityOverrides = pgTable('availability_overrides', {
  */
 export const availabilityRules = pgTable('availability_rules', {
   id: uuid('id').primaryKey().defaultRandom(),
-  ruleType: varchar('ruleType', { length: 30 }).notNull(),
+  ruleType: varchar('rule_type', { length: 30 }).notNull(),
   dayOfWeek: integer('day_of_week'),
   startDate: varchar('start_date', { length: 10 }),
   endDate: varchar('end_date', { length: 10 }),

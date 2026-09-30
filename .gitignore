@@ -51,3 +51,4 @@ db/schema.sql
 test-results/
 playwright-report/
 e2e/.auth/
+baddiesplug-production.backup
