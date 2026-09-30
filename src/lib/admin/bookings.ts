@@ -5,7 +5,7 @@ import { getCurrentLagosDate } from '@/lib/timezone';
 
 export async function pendingBookings() {
   const pending = await db.query.bookings.findMany({
-    where: eq(bookings.status, 'pending'),
+    where: or(eq(bookings.status, 'pending'), eq(bookings.status, 'confirmed')),
     orderBy: [desc(bookings.createdAt)],
   });
 

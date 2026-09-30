@@ -63,7 +63,7 @@ export default async function AdminBookingsPage({ searchParams }: PageProps) {
       // All view includes every status (including ignored and other history)
       // without duplicates: each status list is disjoint, and 'today' rows are
       // already present in their own status lists.
-      filteredBookings = [...pending, ...confirmed, ...approved, ...cancelled, ...rejected, ...completed, ...noShow, ...ignored];
+      filteredBookings = [...pending, ...approved, ...cancelled, ...rejected, ...completed, ...noShow, ...ignored];
   }
 
   // Apply search filter
@@ -125,7 +125,7 @@ export default async function AdminBookingsPage({ searchParams }: PageProps) {
             status === 'pending' ? 'bg-burgundy text-white' : 'text-gray-600 hover:bg-gray-100'
           }`}
         >
-          Pending
+          Pending Requests
         </Link>
         <Link
           href={`/admin/bookings?status=today`}

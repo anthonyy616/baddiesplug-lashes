@@ -4,7 +4,7 @@ import { beforeAfterGallery, bookings, services } from '@/lib/db/schema';
 import { asc, eq, and, isNull } from 'drizzle-orm';
 import { v4 as uuidv4 } from 'uuid';
 import {
-  isStorageConfigured,
+  isPublicStorageConfigured,
   uploadToR2WithCache,
   deleteFromR2,
   getPublicUrl,
@@ -64,13 +64,7 @@ export async function GET() {
     await requireAdminSession();
 
     const entries = await getBeforeAfterEntries();
-    const serviceRows = await db
-      .select({ id: services.id, name: services.name, category: services.category })
-      .from(services)
-      .where(and(eq(services.isActive, true), isNull(services.deletedAt)))
-      .orderBy(asc(services.category), asc(services.name));
-
-    return NextResponse.json({ entries, services: serviceRows });
+    return NextResponse.json({ entries });
   } catch (error) {
     if (error instanceof Error && error.message === 'AdminUnauthorized') {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
@@ -84,9 +78,9 @@ export async function POST(request: NextRequest) {
   try {
     const admin = await requireAdminSession();
 
-    if (!isStorageConfigured()) {
+    if (!isPublicStorageConfigured()) {
       return NextResponse.json(
-        { error: 'Image storage is not configured (missing R2 env vars)' },
+        { error: 'Public image storage is not configured (check R2 credentials and R2_PUBLIC_URL)' },
         { status: 503 }
       );
     }
@@ -171,39 +165,46 @@ export async function POST(request: NextRequest) {
       uploadToR2WithCache(afterProcessed.buffer, afterKey, afterProcessed.contentType, true),
     ]);
 
+    if (!beforeUpload.success || !afterUpload.success) {
+      await Promise.all([deleteFromR2(beforeKey), deleteFromR2(afterKey)]);
+    }
     if (!beforeUpload.success) {
       return NextResponse.json({ error: beforeUpload.error || 'Before image upload failed' }, { status: 500 });
     }
     if (!afterUpload.success) {
-      // Best-effort cleanup of the first upload so we never orphan objects.
-      await deleteFromR2(beforeKey);
       return NextResponse.json({ error: afterUpload.error || 'After image upload failed' }, { status: 500 });
     }
 
     const displayOrder = await getNextDisplayOrder();
 
-    const [row] = await db
-      .insert(beforeAfterGallery)
-      .values({
-        id: entryId,
-        beforeStorageKey: beforeKey,
-        beforePublicUrl: getPublicUrl(beforeKey),
-        beforeWidth: beforeProcessed.width,
-        beforeHeight: beforeProcessed.height,
-        afterStorageKey: afterKey,
-        afterPublicUrl: getPublicUrl(afterKey),
-        afterWidth: afterProcessed.width,
-        afterHeight: afterProcessed.height,
-        serviceId,
-        bookingId,
-        caption,
-        altText: altText ?? caption,
-        isPublic,
-        clientConsent,
-        displayOrder,
-        uploadedBy: admin,
-      })
-      .returning();
+    let row;
+    try {
+      [row] = await db
+        .insert(beforeAfterGallery)
+        .values({
+          id: entryId,
+          beforeStorageKey: beforeKey,
+          beforePublicUrl: getPublicUrl(beforeKey),
+          beforeWidth: beforeProcessed.width,
+          beforeHeight: beforeProcessed.height,
+          afterStorageKey: afterKey,
+          afterPublicUrl: getPublicUrl(afterKey),
+          afterWidth: afterProcessed.width,
+          afterHeight: afterProcessed.height,
+          serviceId,
+          bookingId,
+          caption,
+          altText: altText ?? caption,
+          isPublic,
+          clientConsent,
+          displayOrder,
+          uploadedBy: admin,
+        })
+        .returning();
+    } catch (error) {
+      await Promise.all([deleteFromR2(beforeKey), deleteFromR2(afterKey)]);
+      throw error;
+    }
 
     return NextResponse.json({ success: true, entry: row }, { status: 201 });
   } catch (error) {

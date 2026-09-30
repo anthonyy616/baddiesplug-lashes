@@ -7,7 +7,12 @@ interface PaymentRow {
   id: string;
   bookingId: string;
   bookingReference: string;
+  appointmentDate: string | null;
+  customerName: string;
+  serviceNames: string[];
+  bookingStatus: string;
   amount: number;
+  totalPaid: number;
   paymentType: string;
   note?: string | null;
   createdAt: string;
@@ -22,6 +27,8 @@ interface BookingOption {
   customerName: string;
   customerEmail: string;
   customerPhone: string | null;
+  serviceNames: string[];
+  totalPaid: number;
 }
 
 export default function PaymentsManager({
@@ -68,13 +75,19 @@ export default function PaymentsManager({
         return;
       }
 
+      const booking = bookingOptions.find((option) => option.id === form.bookingId);
       setPayments((prev) => [
         {
           id: data.payment.id,
           bookingId: data.payment.bookingId,
-          bookingReference: '(new)',
+          bookingReference: booking?.reference || '(new)',
+          appointmentDate: booking?.appointmentDate || null,
+          customerName: booking?.customerName || 'Unknown',
+          serviceNames: booking?.serviceNames || [],
+          bookingStatus: booking?.status || 'approved',
           amount: data.payment.amount,
-          paymentType: data.payment.paymentType,
+          totalPaid: (booking?.totalPaid || 0) + data.payment.amount,
+          paymentType: data.payment.paymentType || data.payment.type,
           note: data.payment.note,
           createdAt: 'Just now',
         },
@@ -115,6 +128,7 @@ export default function PaymentsManager({
             {bookingOptions.map((booking) => (
               <option key={booking.id} value={booking.id}>
                 {booking.reference} · {booking.customerName} · {booking.appointmentDate} {booking.startTime} · {booking.status}
+                  {booking.serviceNames.length > 0 ? ` · ${booking.serviceNames.join(', ')}` : ''}
                 {booking.customerPhone ? ` · ${booking.customerPhone}` : ` · ${booking.customerEmail}`}
               </option>
             ))}
@@ -177,6 +191,8 @@ export default function PaymentsManager({
                 <span className="text-gray-600">{p.createdAt}</span>
                 <span className="font-medium">₦{(p.amount / 100).toFixed(2)}</span>
               </div>
+              <p className="mt-1 text-sm text-gray-600">Total paid: ₦{(p.totalPaid / 100).toFixed(2)}</p>
+              <p className="mt-1 text-xs text-gray-500">{p.customerName} · {p.serviceNames.join(', ') || 'No service'} · {p.appointmentDate || 'No date'}</p>
               {p.note && <p className="mt-2 text-sm text-gray-500">{p.note}</p>}
             </div>
           ))}
@@ -192,7 +208,9 @@ export default function PaymentsManager({
           <thead className="bg-gray-50">
             <tr>
               <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Booking</th>
+              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Customer / service</th>
               <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Amount</th>
+              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Total paid</th>
               <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
               <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">When</th>
               <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Note</th>
@@ -200,14 +218,17 @@ export default function PaymentsManager({
           </thead>
           <tbody className="divide-y divide-gray-200">
             {payments.length === 0 && (
-              <tr><td colSpan={5} className="px-4 py-6 text-center text-gray-500 text-sm">No payments recorded yet</td></tr>
+              <tr><td colSpan={7} className="px-4 py-6 text-center text-gray-500 text-sm">No payments recorded yet</td></tr>
             )}
             {payments.map((p) => (
               <tr key={p.id}>
                 <td className="px-4 py-3 text-sm">
                   <span className="font-mono">{p.bookingReference}</span>
+                  <span className="block text-xs text-gray-500">{p.appointmentDate || 'No date'} · {p.bookingStatus}</span>
                 </td>
+                <td className="px-4 py-3 text-sm">{p.customerName}<span className="block text-xs text-gray-500">{p.serviceNames.join(', ') || 'No service'}</span></td>
                 <td className="px-4 py-3 text-sm font-medium">₦{(p.amount / 100).toFixed(2)}</td>
+                <td className="px-4 py-3 text-sm font-medium">₦{(p.totalPaid / 100).toFixed(2)}</td>
                 <td className="px-4 py-3">
                   <span className="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-800 capitalize">
                     {p.paymentType}

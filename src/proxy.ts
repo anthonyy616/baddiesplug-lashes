@@ -44,19 +44,19 @@ interface Rule {
  */
 const RULES: [prefix: string, rule: Rule][] = [
   // Auth registration and sign-in attempts
-  ['/api/auth/register', { limit: 5, windowSeconds: 3600 }],
+  ['/api/auth/register', { limit: 20, windowSeconds: 3600 }],
   // Sign-in attempts (shared bucket with NextAuth's own route)
-  ['/api/auth/', { limit: 20, windowSeconds: 300 }],
+  ['/api/auth/', { limit: 100, windowSeconds: 900 }],
   // Admin login: brute force
-  ['/api/admin/login', { limit: 5, windowSeconds: 900 }],
+  ['/api/admin/login', { limit: 20, windowSeconds: 900 }],
   // Reference uploads: expensive (sharp re-encode + R2 + booking creation)
-  ['/api/uploads/', { limit: 10, windowSeconds: 3600 }],
+  ['/api/uploads/', { limit: 30, windowSeconds: 3600 }],
   // Booking creation/cancellation: spam + slot-squatting
-  ['/api/booking', { limit: 10, windowSeconds: 3600 }],
+  ['/api/booking', { limit: 30, windowSeconds: 3600 }],
   // Admin mutations
-  ['/api/admin/', { limit: 60, windowSeconds: 60 }],
+  ['/api/admin/', { limit: 200, windowSeconds: 60 }],
   // Availability polling from the booking UI
-  ['/api/availability', { limit: 60, windowSeconds: 60 }],
+  ['/api/availability', { limit: 300, windowSeconds: 60 }],
 ];
 
 function matchRule(pathname: string): [string, Rule] | null {
@@ -77,6 +77,10 @@ function getClientIp(request: NextRequest): string {
 
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
+
+  if (pathname.startsWith('/api/auth/') && request.method === 'GET') {
+    return NextResponse.next();
+  }
 
   const matched = matchRule(pathname);
   if (!matched) return NextResponse.next();

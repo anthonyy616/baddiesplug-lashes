@@ -1,43 +1,30 @@
 import { db } from '@/lib/db';
-import { payments, bookings, users } from '@/lib/db/schema';
-import { desc, eq } from 'drizzle-orm';
+import { payments, bookings } from '@/lib/db/schema';
+import { desc, eq, sql } from 'drizzle-orm';
 import { formatLagosTime } from '@/lib/timezone';
 import PaymentsManager from './PaymentsManager';
 
 export const dynamic = 'force-dynamic';
 
 export default async function AdminPaymentsPage() {
-  const bookingOptions = await db
-    .select({
-      id: bookings.id,
-      reference: bookings.reference,
-      appointmentDate: bookings.appointmentDate,
-      startTime: bookings.startTime,
-      status: bookings.status,
-      customerName: users.name,
-      customerEmail: users.email,
-      customerPhone: users.phone,
-    })
-    .from(bookings)
-    .innerJoin(users, eq(users.id, bookings.customerId))
-    .where(eq(bookings.status, 'approved'))
-    .orderBy(desc(bookings.appointmentDate), desc(bookings.startTime))
-    .limit(500);
+  const bookingOptions = await db.query.bookings.findMany({
+    where: eq(bookings.status, 'approved'),
+    with: { customer: true, services: true },
+    orderBy: [desc(bookings.appointmentDate), desc(bookings.startTime)],
+    limit: 500,
+  });
 
   const recent = await db.query.payments.findMany({
+    with: { booking: { with: { customer: true, services: true } } },
     orderBy: [desc(payments.createdAt)],
     limit: 100,
   });
 
-  const bookingRefs = new Map<string, string>();
-  for (const payment of recent) {
-    if (!bookingRefs.has(payment.bookingId)) {
-      const booking = await db.query.bookings.findFirst({
-        where: eq(bookings.id, payment.bookingId),
-      });
-      bookingRefs.set(payment.bookingId, booking?.reference || 'Unknown');
-    }
-  }
+  const totals = await db
+    .select({ bookingId: payments.bookingId, totalPaid: sql<number>`coalesce(sum(${payments.amount}), 0)` })
+    .from(payments)
+    .groupBy(payments.bookingId);
+  const totalsByBooking = new Map(totals.map((row) => [row.bookingId, Number(row.totalPaid)]));
 
   return (
     <div className="space-y-6">
@@ -47,12 +34,28 @@ export default async function AdminPaymentsPage() {
       </div>
 
       <PaymentsManager
-        bookingOptions={bookingOptions}
+        bookingOptions={bookingOptions.map((booking) => ({
+          id: booking.id,
+          reference: booking.reference,
+          appointmentDate: booking.appointmentDate,
+          startTime: booking.startTime,
+          status: booking.status,
+          customerName: booking.customer.name,
+          customerEmail: booking.customer.email,
+          customerPhone: booking.customer.phone,
+          serviceNames: booking.services.map((service) => service.serviceNameSnapshot),
+          totalPaid: totalsByBooking.get(booking.id) || 0,
+        }))}
         recentPayments={recent.map((p) => ({
           id: p.id,
           bookingId: p.bookingId,
-          bookingReference: bookingRefs.get(p.bookingId) || '—',
+          bookingReference: p.booking?.reference || '—',
+          appointmentDate: p.booking?.appointmentDate || null,
+          customerName: p.booking?.customer.name || 'Unknown',
+          serviceNames: p.booking?.services.map((service) => service.serviceNameSnapshot) || [],
+          bookingStatus: p.booking?.status || 'unknown',
           amount: p.amount,
+          totalPaid: totalsByBooking.get(p.bookingId) || 0,
           paymentType: p.paymentType,
           note: p.note,
           createdAt: formatLagosTime(new Date(p.createdAt), 'MMM d, yyyy h:mm a'),

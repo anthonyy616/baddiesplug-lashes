@@ -249,6 +249,14 @@ export async function revokeLoyaltyCode(id: string): Promise<boolean> {
   return updated.length > 0;
 }
 
+export async function deleteLoyaltyCode(id: string): Promise<'deleted' | 'not_found'> {
+  const deleted = await db
+    .delete(loyaltyCodes)
+    .where(eq(loyaltyCodes.id, id))
+    .returning({ id: loyaltyCodes.id });
+  return deleted.length > 0 ? 'deleted' : 'not_found';
+}
+
 /** Per-use inspection for the admin manager. */
 export async function getLoyaltyCodeRedemptions(codeId: string) {
   return db

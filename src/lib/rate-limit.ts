@@ -103,10 +103,10 @@ export async function checkRateLimit(
  * Common rate limit configurations.
  */
 export const RateLimits = {
-  // Login attempts: 5 per minute per IP/email
+  // Login and registration attempts: 20 per 15 minutes per IP/email
   login: {
-    limit: 5,
-    windowSeconds: 60,
+    limit: 20,
+    windowSeconds: 900,
     keyPrefix: 'login',
   } as RateLimitConfig,
 

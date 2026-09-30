@@ -40,7 +40,7 @@ export class ManualPaymentProvider implements PaymentProvider {
       amount: record.amount,
       paymentType: record.type,
       note: record.note,
-      recordedByAdminId: record.recordedBy ? undefined : null, // admin ID if provided
+      recordedByAdminId: record.recordedBy ?? null,
       createdAt: record.createdAt,
     });
 

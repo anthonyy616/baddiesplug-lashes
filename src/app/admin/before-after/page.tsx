@@ -1,12 +1,15 @@
 import { requireAdminSession } from '@/lib/admin-auth';
 import BeforeAfterManager from './BeforeAfterManager';
-import { getBeforeAfterEntries } from '@/lib/before-after';
+import { getBeforeAfterAdminOptions, getBeforeAfterEntries } from '@/lib/before-after';
 
 export const dynamic = 'force-dynamic';
 
 export default async function AdminBeforeAfterPage() {
   await requireAdminSession();
-  const entries = await getBeforeAfterEntries();
+  const [entries, options] = await Promise.all([
+    getBeforeAfterEntries(),
+    getBeforeAfterAdminOptions(),
+  ]);
 
   return (
     <div className="space-y-6">
@@ -17,7 +20,7 @@ export default async function AdminBeforeAfterPage() {
           uploaded</strong> — publish only with recorded client consent.
         </p>
       </div>
-      <BeforeAfterManager initialEntries={entries} />
+      <BeforeAfterManager initialEntries={entries} {...options} />
     </div>
   );
 }

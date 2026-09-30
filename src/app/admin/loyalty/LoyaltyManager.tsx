@@ -132,6 +132,22 @@ export default function LoyaltyManager() {
     }
   };
 
+  const remove = async (entry: LoyaltyCode) => {
+    if (!window.confirm(`Delete ${entry.code}? Its usage history will also be removed. This cannot be undone.`)) return;
+    setError(null);
+    setMessage(null);
+    try {
+      const res = await fetch(`/api/admin/loyalty?id=${entry.id}`, { method: 'DELETE' });
+      const data = (await res.json()) as { error?: string };
+      if (!res.ok) throw new Error(data.error || 'Delete failed');
+      setMessage(`Code ${entry.code} deleted.`);
+      if (expanded === entry.id) setExpanded(null);
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Delete failed');
+    }
+  };
+
   const toggleRedemptions = async (codeId: string) => {
     if (expanded === codeId) {
       setExpanded(null);
@@ -299,6 +315,13 @@ export default function LoyaltyManager() {
                       Revoke
                     </button>
                   )}
+                  <button
+                    type="button"
+                    onClick={() => remove(c)}
+                    className="px-3 py-1.5 text-xs rounded-lg border border-red-300 text-red-700 hover:bg-red-50"
+                  >
+                    Delete
+                  </button>
                   <button
                     type="button"
                     onClick={() => toggleRedemptions(c.id)}

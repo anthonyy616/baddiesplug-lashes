@@ -9,7 +9,31 @@ import type { BeforeAfterEntry } from '@/types';
  * assign service/booking, caption, consent + publication control, reorder,
  * delete. Uploads never auto-publish.
  */
-export default function BeforeAfterManager({ initialEntries }: { initialEntries: BeforeAfterEntry[] }) {
+interface ServiceOption {
+  id: string;
+  name: string;
+  category: string;
+}
+
+interface BookingOption {
+  id: string;
+  reference: string;
+  appointmentDate: string;
+  startTime: string;
+  customerName: string;
+  customerEmail: string;
+  serviceNames: string[];
+}
+
+export default function BeforeAfterManager({
+  initialEntries,
+  services,
+  bookings,
+}: {
+  initialEntries: BeforeAfterEntry[];
+  services: ServiceOption[];
+  bookings: BookingOption[];
+}) {
   const router = useRouter();
   const [entries, setEntries] = useState(initialEntries);
   const [busy, setBusy] = useState(false);
@@ -28,7 +52,7 @@ export default function BeforeAfterManager({ initialEntries }: { initialEntries:
 
   async function refresh() {
     const res = await fetch('/api/admin/before-after', { cache: 'no-store' });
-    if (res.ok) {
+      if (res.ok) {
       const data = await res.json();
       setEntries(data.entries);
     }
@@ -183,23 +207,34 @@ export default function BeforeAfterManager({ initialEntries }: { initialEntries:
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <label className="block">
             <span className="block text-sm text-gray-600 mb-1">Service</span>
-            <input
-              type="text"
+            <select
               value={serviceId}
               onChange={(e) => setServiceId(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm font-mono"
-              placeholder="Service UUID (optional)"
-            />
+              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+            >
+              <option value="">No service assigned</option>
+              {services.map((service) => (
+                <option key={service.id} value={service.id}>
+                  {service.category} · {service.name}
+                </option>
+              ))}
+            </select>
           </label>
           <label className="block">
             <span className="block text-sm text-gray-600 mb-1">Completed booking ID</span>
-            <input
-              type="text"
+            <select
               value={bookingId}
               onChange={(e) => setBookingId(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm font-mono"
-              placeholder="Booking UUID (optional)"
-            />
+              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+            >
+              <option value="">No booking assigned</option>
+              {bookings.map((booking) => (
+                <option key={booking.id} value={booking.id}>
+                  {booking.reference} · {booking.appointmentDate} · {booking.customerName}
+                  {booking.serviceNames.length > 0 ? ` · ${booking.serviceNames.join(', ')}` : ''}
+                </option>
+              ))}
+            </select>
           </label>
         </div>
         <div className="space-y-2 text-sm">

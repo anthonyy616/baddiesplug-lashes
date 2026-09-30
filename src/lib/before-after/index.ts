@@ -1,6 +1,6 @@
 import { db } from '@/lib/db';
-import { beforeAfterGallery, bookings } from '@/lib/db/schema';
-import { and, asc, eq } from 'drizzle-orm';
+import { beforeAfterGallery, bookingServices, bookings, services, users } from '@/lib/db/schema';
+import { and, asc, desc, eq, inArray, isNull, or } from 'drizzle-orm';
 import type { BeforeAfterEntry } from '@/types';
 
 /**
@@ -26,15 +26,69 @@ export async function getBeforeAfterEntries(): Promise<BeforeAfterEntry[]> {
   return rows.map(toEntry);
 }
 
+export async function getBeforeAfterAdminOptions() {
+  const [serviceRows, bookingRows] = await Promise.all([
+    db
+      .select({ id: services.id, name: services.name, category: services.category })
+      .from(services)
+      .where(and(eq(services.isActive, true), isNull(services.deletedAt)))
+      .orderBy(asc(services.category), asc(services.name)),
+    db
+      .select({
+        id: bookings.id,
+        reference: bookings.reference,
+        appointmentDate: bookings.appointmentDate,
+        startTime: bookings.startTime,
+        customerName: users.name,
+        customerEmail: users.email,
+      })
+      .from(bookings)
+      .innerJoin(users, eq(users.id, bookings.customerId))
+      .where(eq(bookings.status, 'completed'))
+      .orderBy(desc(bookings.appointmentDate), desc(bookings.startTime))
+      .limit(500),
+  ]);
+
+  const serviceNames = new Map<string, string[]>();
+  if (bookingRows.length > 0) {
+    const rows = await db
+      .select({ bookingId: bookingServices.bookingId, name: bookingServices.serviceNameSnapshot })
+      .from(bookingServices)
+      .where(inArray(bookingServices.bookingId, bookingRows.map((booking) => booking.id)));
+    for (const row of rows) {
+      const names = serviceNames.get(row.bookingId) ?? [];
+      names.push(row.name);
+      serviceNames.set(row.bookingId, names);
+    }
+  }
+
+  return {
+    services: serviceRows,
+    bookings: bookingRows.map((booking) => ({
+      ...booking,
+      serviceNames: serviceNames.get(booking.id) ?? [],
+    })),
+  };
+}
+
 /** Public showcase rows: ONLY published entries, in display order. */
 export async function getPublicBeforeAfterEntries(): Promise<BeforeAfterEntry[]> {
   const rows = await db
     .select()
     .from(beforeAfterGallery)
-    .where(eq(beforeAfterGallery.isPublic, true))
+    .leftJoin(services, eq(beforeAfterGallery.serviceId, services.id))
+    .where(
+      and(
+        eq(beforeAfterGallery.isPublic, true),
+        or(
+          isNull(beforeAfterGallery.serviceId),
+          and(eq(services.isActive, true), isNull(services.deletedAt)),
+        ),
+      ),
+    )
     .orderBy(asc(beforeAfterGallery.displayOrder), asc(beforeAfterGallery.createdAt));
 
-  return rows.map(toEntry);
+  return rows.map((row) => toEntry(row.before_after_gallery));
 }
 
 /** Public rows for one service. */

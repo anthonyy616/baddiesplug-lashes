@@ -5,6 +5,7 @@ import {
   listLoyaltyCodes,
   setLoyaltyCodeActive,
   revokeLoyaltyCode,
+  deleteLoyaltyCode,
   getLoyaltyCodeRedemptions,
   normalizeCode,
 } from '@/lib/loyalty';
@@ -180,5 +181,28 @@ export async function PATCH(request: NextRequest) {
     }
     console.error('Loyalty PATCH error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}
+
+export async function DELETE(request: NextRequest) {
+  try {
+    await requireAdminSession();
+
+    const id = request.nextUrl.searchParams.get('id');
+    if (!id || !/^[0-9a-f-]{36}$/i.test(id)) {
+      return NextResponse.json({ error: 'Invalid or missing id' }, { status: 400 });
+    }
+
+    const result = await deleteLoyaltyCode(id);
+    if (result === 'not_found') {
+      return NextResponse.json({ error: 'Code not found' }, { status: 404 });
+    }
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    if (error instanceof Error && error.message === 'AdminUnauthorized') {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+    console.error('Loyalty DELETE error:', error);
+    return NextResponse.json({ error: 'Failed to delete code' }, { status: 500 });
   }
 }

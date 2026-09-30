@@ -66,7 +66,10 @@ export async function POST(request: NextRequest) {
       admin
     );
 
-    return NextResponse.json({ success: true, payment: created });
+    return NextResponse.json({
+      success: true,
+      payment: { ...created, paymentType: created.type },
+    });
   } catch (error) {
     if (error instanceof Error && error.message === 'AdminUnauthorized') {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });

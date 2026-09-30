@@ -20,7 +20,7 @@ export default async function AdminDashboardPage() {
     totalCustomers,
   ] = await Promise.all([
     getCount(bookings),
-    getCount(bookings, eq(bookings.status, 'pending')),
+    getCount(bookings, or(eq(bookings.status, 'pending'), eq(bookings.status, 'confirmed'))),
     getBookingsByDate(today),
     getTodayRevenue(today),
     getCount(bookings, undefined, 'customerId'),
@@ -72,7 +72,7 @@ export default async function AdminDashboardPage() {
               href="/admin/bookings?status=pending"
               className="mt-2 inline-block text-sm text-burgundy hover:text-burgundy/80"
             >
-              View pending
+              View requests
             </Link>
           )}
         </div>
@@ -123,7 +123,7 @@ export default async function AdminDashboardPage() {
           <div className="divide-y divide-gray-200">
             {pendingList.length === 0 ? (
               <div className="p-4 text-center text-gray-500">
-                No pending bookings
+                No payment approval requests
               </div>
             ) : (
               pendingList.map((booking: any) => (
@@ -252,7 +252,7 @@ async function getTodayRevenue(date: string): Promise<number> {
 async function getPendingBookings(limit: number) {
   try {
     const pending = await db.query.bookings.findMany({
-      where: eq(bookings.status, 'pending'),
+      where: or(eq(bookings.status, 'pending'), eq(bookings.status, 'confirmed')),
       orderBy: [desc(bookings.createdAt)],
       limit,
     });
