@@ -1,9 +1,9 @@
 # Implementation Handoff — Stages 6–10
 
-**Date:** September 29, 2026
+**Date:** September 29–30, 2026
 **Repository:** `baddiesplug-lashes` · **Branch:** `new-features`
 **Plan:** `agent/new-features/implementation/implementation-plan.md`
-**Scope of this session:** Stages 6–10 implemented, validated, committed and pushed to `new-features`. `main` untouched; no merge to `test` after the Stage 4 checkpoint (the single authorized `test` merge was already consumed).
+**Scope of this session:** Stages 6–10 implemented, validated, committed and pushed to `new-features`. `main` untouched; no merge to `test` after the Stage 4 checkpoint (the single authorized `test` merge was already consumed). On September 30: production data was NOT touched — all migration work went to a dedicated Neon branch (see "Database environment" below).
 
 ---
 
@@ -99,9 +99,33 @@ Migrations **0016** and **0017** were originally written with **camelCase column
 | `test` | `6a8d196` | Stages 1–4 only — the Stage 4 checkpoint merge (the single authorized `new-features → test` merge, already consumed). **Stages 5–10 are NOT merged here** per instructions. |
 | `main` | `edc97fa` | **Untouched** — pre-sprint production state. Never modified during the sprint. |
 
+## Follow-up fixes (September 30) — commit `2438f99`
+
+The new pages were returning 500s: `relation "availability_rules" / "loyalty_codes" / "before_after_gallery" does not exist`.
+
+**Root cause:** the local/dev database (Neon prod project `frosty-cell-80914616`, endpoint `ep-late-bonus-b1l0zprg`) had never received migrations 0013–0017. In fact its `drizzle.__drizzle_migrations` history was EMPTY — the DB was originally created via `db:push`, so `drizzle-kit migrate` had nothing to replay. Per instruction, **prod was not touched**: a dedicated Neon branch was created and migrated instead.
+
+**What was done:**
+1. **Neon branch `dev-stages-6-10`** (`br-calm-recipe-b1gy5bew`, endpoint `ep-long-sea-b1yep6fm`) created off the production snapshot — real data preserved (admin users, homepage media, etc.).
+2. Applied **0013–0017** to the branch via `scripts/apply-new-migrations.ts` (all statements idempotent) and backfilled `drizzle.__drizzle_migrations` (5 rows) so future `drizzle-kit migrate` runs behave.
+3. **Code fix:** `availabilityRules.ruleType` was mapped to camelCase column `'ruleType'` (the one column missed when the migrations were normalized to snake_case) — renamed to `'rule_type'` in the Drizzle schema.
+4. **Local `.env`** `DATABASE_URL` now points at the branch endpoint so local dev uses the migrated branch, not prod.
+5. Verified end-to-end: `/api/availability` returns 200 with the four standard slots on a business day and `[]` on a closed day; `scripts/verify-schema.ts` cross-checks every Drizzle column against the live DB.
+
+### Why the calendar showed "Fri, 2 Oct — Closed (no standard slots)"
+
+A timezone bug in `AdminCalendar.tsx`, not an availability problem. `prettyDate()` parsed `YYYY-MM-DDT00:00:00` as **local** time but formatted it with `timeZone: 'UTC'`. For a UTC+1 (Lagos) viewer, each card's label rendered one day early — so **Saturday Oct 3** (correctly closed, no weekend slots) displayed as "Fri, 2 Oct". Fixed by parsing at `T00:00:00Z`; labels now match their actual cards.
+
+## Database environment (as of September 30, 2026)
+
+| Environment | Neon endpoint | Migration state |
+|---|---|---|
+| Production project `frosty-cell-80914616` | `ep-late-bonus-b1l0zprg-pooler` | **Untouched.** Schema drift discovered: it has migrations 0000–0012 applied via `db:push` (empty drizzle history). To migrate prod later, run `scripts/apply-new-migrations.ts` with prod's `DATABASE_URL`. |
+| Dev branch `dev-stages-6-10` (`br-calm-recipe-b1gy5bew`) | `ep-long-sea-b1yep6fm` | 0013–0017 applied + drizzle history backfilled. Local `.env` points here. |
+
 ## Notes for the next session
 
-- Migrations 0015–0017 have **never been applied to any shared environment** (`test` predates them); they must run on first deploy of `new-features`.
+- The production Neon DB is still missing migrations 0013–0017 (and has an empty drizzle migration history). When ready to migrate prod: run `npx tsx scripts/apply-new-migrations.ts` with prod `DATABASE_URL` — all statements are idempotent and forward-only.
 - Deposits: with a discount applied, `depositRequired` = max(50% of final total, 500000 kobo); without one, unchanged `calculateBookingTotal` behavior. Existing bookings are unaffected (snapshot columns are nullable).
 - Availability precedence (Stage 9) lives solely in `src/lib/availability/rules.ts` — do not re-implement precedence elsewhere.
 - Stage 7's relaxed journal assertion (`tags[tags.length-1] !== '0014_...'`) remains compatible with future migrations.
