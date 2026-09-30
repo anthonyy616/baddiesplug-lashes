@@ -11,6 +11,7 @@ import AddonCards, { SelectableAddon } from '@/components/booking/AddonCards';
 import DateTimePicker, { SlotInfo } from '@/components/booking/DateTimePicker';
 import DetailsStep from '@/components/booking/DetailsStep';
 import ReviewStep from '@/components/booking/ReviewStep';
+import PromoCodeField, { PromoPreview } from '@/components/booking/PromoCodeField';
 import Success from './Success';
 
 const STEPS = ['services', 'addons', 'datetime', 'details', 'review'] as const;
@@ -49,6 +50,11 @@ export default function BookingFlow({ paymentDetails }: { paymentDetails: Paymen
   const [phone, setPhone] = useState('');
   const [notes, setNotes] = useState('');
   const [photos, setPhotos] = useState<{ id: string; filename: string }[]>([]);
+
+  // Promo code (Stage 10): preview is validated server-side; the code string
+  // is sent at submission and the discount is applied authoritatively inside
+  // the booking transaction.
+  const [promo, setPromo] = useState<PromoPreview | null>(null);
 
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -322,6 +328,12 @@ export default function BookingFlow({ paymentDetails }: { paymentDetails: Paymen
     [subtotal]
   );
 
+  // Post-discount totals: the server recomputes authoritatively at booking
+  // time; these previews only drive display and use the same rules
+  // (discount → final total → deposit = max(50%, ₦5,000)).
+  const finalTotal = promo ? promo.finalTotal : subtotal;
+  const payableDeposit = promo ? promo.deposit : deposit;
+
   const summaryItems: SummaryItem[] = useMemo(
     () => [
       ...selectedServices.map((s) => ({ id: s.id, name: s.name, price: s.price, kind: 'service' as const })),
@@ -329,6 +341,20 @@ export default function BookingFlow({ paymentDetails }: { paymentDetails: Paymen
     ],
     [selectedServices, selectedAddons]
   );
+
+  // Cart changed → any applied promo preview is stale (service applicability
+  // may no longer hold); drop it and let the customer re-apply.
+  const cartKey = useMemo(
+    () => summaryItems.map((i) => i.id).sort().join(','),
+    [summaryItems]
+  );
+  const lastCartKeyRef = useRef(cartKey);
+  useEffect(() => {
+    if (lastCartKeyRef.current !== cartKey) {
+      lastCartKeyRef.current = cartKey;
+      setPromo(null);
+    }
+  }, [cartKey]);
 
   const formatPriceHdr = formatNairaCompact;
 
@@ -391,6 +417,8 @@ export default function BookingFlow({ paymentDetails }: { paymentDetails: Paymen
             phone: phone.trim(),
             notes: notes.trim() || undefined,
             submissionKey: submissionKeyRef.current,
+            // Only the code STRING travels — the server computes the discount.
+            discountCode: promo?.code,
           }),
         });
 
@@ -405,6 +433,15 @@ export default function BookingFlow({ paymentDetails }: { paymentDetails: Paymen
           // new idempotency scope.
           submissionKeyRef.current = uuidv4();
           return; // Success
+        }
+
+        // Promo code rejected at booking time (revoked/exhausted between
+        // preview and confirm) — surface and return to the review step.
+        if (typeof data.error === 'string' && data.error.startsWith('discount_code_')) {
+          setError('That promo code can no longer be used. Remove it and try again, or book without it.');
+          setPromo(null);
+          setIsSubmitting(false);
+          return;
         }
 
         // Non-transient errors — don't retry
@@ -587,17 +624,25 @@ export default function BookingFlow({ paymentDetails }: { paymentDetails: Paymen
             {STEPS[stepIndex] === 'review' && (
               <section aria-label="Review your booking">
                 <h2 className="font-display text-2xl text-ink dark:text-ink-dark mb-6">Review your booking</h2>
-                <ReviewStep
-                  items={summaryItems}
-                  date={selectedDate}
-                  slot={selectedSlot}
-                  subtotal={subtotal}
-                  deposit={deposit}
-                  phone={phone}
-                  notes={notes}
-                  photoCount={photos.length}
-                  paymentDetails={paymentDetails}
+                <PromoCodeField
+                  serviceIds={selectedServices.map((s) => s.id)}
+                  onApplied={setPromo}
+                  onCleared={() => setPromo(null)}
                 />
+                <div className="mt-4">
+                  <ReviewStep
+                    items={summaryItems}
+                    date={selectedDate}
+                    slot={selectedSlot}
+                    subtotal={subtotal}
+                    discount={promo}
+                    deposit={payableDeposit}
+                    phone={phone}
+                    notes={notes}
+                    photoCount={photos.length}
+                    paymentDetails={paymentDetails}
+                  />
+                </div>
               </section>
             )}
           </>
@@ -619,8 +664,8 @@ export default function BookingFlow({ paymentDetails }: { paymentDetails: Paymen
         items={summaryItems}
         date={selectedDate}
         slot={selectedSlot}
-        subtotal={subtotal}
-        deposit={deposit}
+        subtotal={finalTotal}
+        deposit={payableDeposit}
         ctaLabel={ctaLabel}
         ctaDisabled={!canContinue}
         onCta={handleCta}

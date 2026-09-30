@@ -211,6 +211,26 @@ export async function getCustomerCodes(customerId: string): Promise<LoyaltyCodeR
   return rows.map(toRecord);
 }
 
+/**
+ * Whether the customer has AT LEAST ONE currently usable code. Drives UI
+ * gating: the booking-flow promo field renders only when this is true, so a
+ * code that is deactivated, revoked, expired, or exhausted makes the field
+ * disappear entirely. (Applicability to the current cart is checked at
+ * apply-time — this gate is only about code existence/health.)
+ */
+export async function hasUsableCodesForCustomer(customerId: string): Promise<boolean> {
+  const codes = await getCustomerCodes(customerId);
+  const now = new Date();
+  return codes.some(
+    (c) =>
+      c.isActive &&
+      !c.revokedAt &&
+      (!c.startsAt || now >= c.startsAt) &&
+      (!c.expiresAt || now <= c.expiresAt) &&
+      (c.usageLimit === null || c.usageCount < c.usageLimit)
+  );
+}
+
 export async function setLoyaltyCodeActive(id: string, isActive: boolean): Promise<boolean> {
   const updated = await db
     .update(loyaltyCodes)

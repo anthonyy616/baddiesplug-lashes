@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { formatSlotLabel } from './StickySummaryBar';
+import type { PromoPreview } from './PromoCodeField';
 
 export interface ReviewData {
   id: string;
@@ -15,6 +16,9 @@ interface ReviewStepProps {
   date: string | null;
   slot: { startTime: string; endTime: string } | null;
   subtotal: number;
+  /** Applied promo code preview (Stage 10) — null when no code applied. */
+  discount?: PromoPreview | null;
+  /** Deposit AFTER the discount is applied (when a code is present). */
   deposit: number;
   phone: string;
   notes: string;
@@ -35,12 +39,15 @@ export default function ReviewStep({
   date,
   slot,
   subtotal,
+  discount,
   deposit,
   phone,
   notes,
   photoCount,
   paymentDetails,
 }: ReviewStepProps) {
+  const discountAmount = discount?.discountAmount ?? 0;
+  const finalTotal = subtotal - discountAmount;
   const [copied, setCopied] = useState(false);
   const formattedDate = date
     ? new Date(date + 'T00:00:00').toLocaleDateString('en-NG', {
@@ -70,6 +77,20 @@ export default function ReviewStep({
           <span className="text-sm text-ink-secondary dark:text-ink-dark-secondary">Subtotal</span>
           <span className="font-medium text-ink dark:text-ink-dark">{formatPrice(subtotal)}</span>
         </div>
+        {discount && (
+          <div className="flex justify-between px-4 py-3 bg-surface-inset dark:bg-surface-inset-dark">
+            <span className="text-sm text-ink-secondary dark:text-ink-dark-secondary">
+              Promo <span className="font-mono">{discount.code}</span> ({discount.discountPercent}% off)
+            </span>
+            <span className="font-medium text-green-700 dark:text-green-400">−{formatPrice(discount.discountAmount)}</span>
+          </div>
+        )}
+        {discount && (
+          <div className="flex justify-between px-4 py-3 bg-surface-inset dark:bg-surface-inset-dark">
+            <span className="text-sm text-ink-secondary dark:text-ink-dark-secondary">Total after discount</span>
+            <span className="font-medium text-ink dark:text-ink-dark">{formatPrice(finalTotal)}</span>
+          </div>
+        )}
         <div className="flex justify-between px-4 py-3 bg-surface-inset dark:bg-surface-inset-dark">
           <span className="text-sm text-ink-secondary dark:text-ink-dark-secondary">Required deposit</span>
           <span className="font-bold text-burgundy dark:text-burgundy-lifted">{formatPrice(deposit)}</span>

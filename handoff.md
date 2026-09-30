@@ -129,4 +129,4 @@ A timezone bug in `AdminCalendar.tsx`, not an availability problem. `prettyDate(
 - Deposits: with a discount applied, `depositRequired` = max(50% of final total, 500000 kobo); without one, unchanged `calculateBookingTotal` behavior. Existing bookings are unaffected (snapshot columns are nullable).
 - Availability precedence (Stage 9) lives solely in `src/lib/availability/rules.ts` — do not re-implement precedence elsewhere.
 - Stage 7's relaxed journal assertion (`tags[tags.length-1] !== '0014_...'`) remains compatible with future migrations.
-- The booking flow UI does not yet surface a code-entry field; the API accepts `discountCode` today, so the frontend input is the natural next increment.
+- The booking flow now surfaces a promo-code field on the review step (September 30): it renders ONLY when the signed-in customer has at least one usable code (`GET /api/booking/promo-code` gate) — deactivated, revoked, expired, or exhausted codes make the field disappear. Applying runs a server-side preview (`POST /api/booking/promo-code`); only the code string is sent at submission and the discount is recomputed authoritatively inside the booking transaction.
